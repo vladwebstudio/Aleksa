@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="uk" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<title>Підключення YouTube · Alexa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{ --bg:#F3F5FB; --card:#fff; --text:#151A2E; --muted:#6B7390; --brand:#6366F1; --success:#22C55E; --danger:#EF4444; --warn:#F5B301; --border:#E5E8F0; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Inter",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:460px;width:100%;box-shadow:0 4px 16px rgba(16,24,40,.06);text-align:center}
+  h1{margin:0 0 10px;font-size:20px}
+  p{margin:8px 0;color:var(--muted);font-size:14px;line-height:1.5}
+  .status{font-size:16px;font-weight:600;margin:16px 0}
+  .ok{color:var(--success)}
+  .err{color:var(--danger)}
+  .wait{color:var(--warn)}
+  .btn{display:inline-block;background:var(--brand);color:#fff;padding:10px 18px;border-radius:10px;border:0;cursor:pointer;font:inherit;font-weight:600;margin-top:14px;text-decoration:none}
+  .btn:hover{background:#4F46E5}
+  .code{display:inline-block;background:#F7F9FD;border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="status" class="status wait">⏳ Обробка...</div>
+  <p id="detail">Отримання коду від Google...</p>
+  <a id="back" class="btn" href="./">Повернутись на сайт</a>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey:"AIzaSyANVA_6Gb2wB5ZsRwxgTKj-p38_NYKbUQ4",
+  authDomain:"alexaai-c6802.firebaseapp.com",
+  projectId:"alexaai-c6802",
+  storageBucket:"alexaai-c6802.firebasestorage.app",
+  messagingSenderId:"237797819529",
+  appId:"1:237797819529:web:67ac7df6730052e2a77258",
+};
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+
+const statusEl = document.getElementById("status");
+const detailEl = document.getElementById("detail");
+function setStatus(cls, title, msg){ statusEl.className = "status " + cls; statusEl.textContent = title; detailEl.textContent = msg; }
+
+(async ()=>{
+  const params = new URLSearchParams(window.location.search);
+  const code  = params.get("code");
+  const state = params.get("state");
+  const error = params.get("error");
+
+  if (error){ setStatus("err", "✗ Відмовлено Google", "Код помилки: " + error + ". Спробуй ще раз з модалки профілю."); return; }
+  if (!code){ setStatus("err", "✗ Немає коду", "URL не містить ?code=... Можливо, ти відкрив цю сторінку напряму."); return; }
+
+  // Verify state
+  let savedState = ""; let savedEmail = "";
+  try { savedState = sessionStorage.getItem("yt_oauth_state") || ""; savedEmail = sessionStorage.getItem("yt_oauth_email") || ""; } catch(e){}
+  if (!savedState || savedState !== state){
+    setStatus("err", "✗ State не збігається", "Можлива атака CSRF або сесія браузера очищена. Почни заново.");
+    return;
+  }
+
+  // Wait for Firebase Auth to resolve
+  const user = await new Promise((resolve)=>{
+    const unsub = auth.onAuthStateChanged(u=>{ unsub(); resolve(u); });
+  });
+  if (!user){
+    setStatus("err", "✗ Не авторизований", "Увійди на сайт у цьому ж браузері і спробуй знову.");
+    return;
+  }
+  if (user.email !== savedEmail){
+    setStatus("err", "✗ Інший акаунт", "Ти увійшов на сайт як " + user.email + ", але підключення починалось для " + savedEmail + ".");
+    return;
+  }
+
+  // Write code to Firestore for worker to pick up
+  try {
+    await db.collection("youtubeAuthCodes").doc(user.email).set({
+      code,
+      state,
+      status: "pending",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: user.email,
+      redirectUri: window.location.origin + window.location.pathname.replace(/[^\/]*$/, "") + "oauth-callback.html",
+    });
+  } catch(ex){
+    setStatus("err", "✗ Не вдалось зберегти в Firestore", (ex.code||ex.message||String(ex)) + ". Перевір правила Firestore для youtubeAuthCodes.");
+    return;
+  }
+
+  try { sessionStorage.removeItem("yt_oauth_state"); sessionStorage.removeItem("yt_oauth_email"); } catch(e){}
+
+  setStatus("ok", "✓ Код отримано", "Воркер підхопить його і підключить канал. Можна повернутись на сайт.");
+})();
+</script>
+</body>
+</html>

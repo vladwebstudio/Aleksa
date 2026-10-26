@@ -2385,7 +2385,7 @@ function renderSettings(root){
   const limitSave = el("button",{class:"btn btn-primary btn-sm"},"Зберегти ліміт");
   let usageDoc = {};
   function paintCost(){
-    const an = Number(usageDoc.analysisCostUsd||0), ch = Number(usageDoc.chatCostUsd||0), spent = an+ch;
+    const an = Number(usageDoc.analysisCostUsd||0), ch = Number(usageDoc.chatCostUsd||0), spent = Math.max(an+ch, Number(usageDoc.realCostUsd||0));
     const pct = limitUsd>0 ? spent/limitUsd*100 : 0;
     costNum.textContent = "$"+spent.toFixed(2)+" з $"+limitUsd;
     costBar.style.width = Math.min(100,pct)+"%";
@@ -2451,7 +2451,7 @@ function renderSettings(root){
     const live = ["done","queued","ended","downloading","transcribing","queued_for_analysis","analyzing","transcribed"];
     const recent = all.filter(c => c.source==="youtube_watcher" && live.includes(c.status) && new Date(c.startedAt)>=since).length;
     const perDay = recent/14;
-    const spent = Number(usageDoc.analysisCostUsd||0) + Number(usageDoc.chatCostUsd||0);
+    const spent = Math.max(Number(usageDoc.analysisCostUsd||0) + Number(usageDoc.chatCostUsd||0), Number(usageDoc.realCostUsd||0));
     const chatShare = (usageDoc.analysisCostUsd>0) ? Math.min(0.5, Number(usageDoc.chatCostUsd||0)/Number(usageDoc.analysisCostUsd)) : 0.1;
     const add = avg*perDay*left*(1+Math.max(0.1,chatShare));
     const total = spent + add;

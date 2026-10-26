@@ -67,7 +67,7 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);height:36px;padding:0 14px;border:1px solid transparent;border-radius:var(--r-sm);font-weight:500;font-size:13.5px;transition:all var(--dur) var(--ease);cursor:pointer;white-space:nowrap}
 .btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .btn-primary{background:var(--brand);color:#fff;box-shadow:var(--brand-shadow)}
-.btn-primary:hover{background:var(--brand-hover);transform:translateY(-1px)}
+.btn-primary:hover{background:var(--brand-hover)}
 .btn-ghost{background:transparent;color:var(--text);border-color:var(--border)}
 .btn-ghost:hover{background:var(--surface-2);border-color:var(--border-strong)}
 .btn-danger-outline{background:var(--surface);color:var(--danger);border:1.5px solid var(--danger)}
@@ -86,7 +86,7 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .card--pad-sm{padding:var(--s-4) var(--s-5)}
 .card__title{font-size:13.5px;color:var(--text-muted);margin:0 0 var(--s-2);font-weight:500;display:flex;align-items:center;justify-content:space-between;gap:var(--s-2)}
 .card.is-clickable{cursor:pointer;transition:all var(--dur) var(--ease)}
-.card.is-clickable:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--sh-md)}
+.card.is-clickable:hover{border-color:var(--brand);box-shadow:var(--sh-md)}
 
 .ov-top{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s-4);margin-bottom:var(--s-5)}
 .kpi__value{font-size:34px;font-weight:700;line-height:1.1;letter-spacing:-0.02em;margin-top:2px}
@@ -153,7 +153,7 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .calls-head > div{padding:0 2px}
 .calls-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px var(--s-4);cursor:pointer;transition:all var(--dur) var(--ease);box-shadow:var(--sh-sm)}
 .calls-row + .calls-row{margin-top:8px}
-.calls-row:hover{border-color:var(--brand);transform:translateY(-1px);box-shadow:var(--sh-md)}
+.calls-row:hover{border-color:var(--brand);box-shadow:var(--sh-md)}
 .calls-row__cell{min-width:0;overflow:hidden}
 .calls-row__cell.truncate{text-overflow:ellipsis;white-space:nowrap}
 .pbar{height:6px;background:var(--surface-2,#e8eaf2);border-radius:99px;overflow:hidden}
@@ -992,8 +992,8 @@ function renderLogin(root){
       catch(ex){ err.textContent="Невірний email або пароль. ("+(ex.code||ex.message)+")"; btn.disabled=false; btn.textContent="Увійти"; }
     }
   },
-    el("div",{}, el("div",{class:"login-label"},"Email"), el("input",{type:"email",required:"",autocomplete:"username",class:"login-field"})),
-    el("div",{}, el("div",{class:"login-label"},"Пароль"), el("input",{type:"password",required:"",autocomplete:"current-password",class:"login-field"})),
+    el("div",{}, el("div",{class:"login-label"},"Email"), el("input",{type:"email",name:"email",id:"login-email",required:"",autocomplete:"username",class:"login-field"})),
+    el("div",{}, el("div",{class:"login-label"},"Пароль"), el("input",{type:"password",name:"password",id:"login-password",required:"",autocomplete:"current-password",class:"login-field"})),
     el("button",{type:"submit",class:"btn btn-primary",style:"height:42px;margin-top:4px;"},"Увійти"),
     err
   );

@@ -2358,20 +2358,24 @@ function openPurgeModal(u, n, after){
 function renderSettings(root){
   const workerChip = el("span",{class:"chip chip--error"},"Перевіряю...");
   const workerInfo = el("div",{class:"muted small",style:"line-height:1.5;"},"");
-  (async ()=>{
-    try {
-      const h = await db.collection("health").doc("worker").get();
-      const d = h.exists ? h.data() : null;
+  (function(){
+    let d = null, loaded = false;
+    function paint(){
       const beat = d && d.lastBeat && d.lastBeat.toDate ? d.lastBeat.toDate() : null;
       const ageMin = beat ? (Date.now()-beat.getTime())/60000 : null;
-      if (beat && ageMin <= 5){
+      if (beat && ageMin <= 2.5){
         workerChip.className = "chip chip--done"; workerChip.textContent = "Працює";
       } else {
         workerChip.className = "chip chip--error"; workerChip.textContent = beat ? "Не відповідає" : "Не підключений";
       }
       workerInfo.textContent = beat
         ? "Останній сигнал: " + beat.toLocaleString("uk-UA") + " · у черзі: " + (d.queueLength ?? "—") + (d.lastError ? " · помилка: " + d.lastError : "")
-        : "Сигналів від сервера ще не було.";
+        : (loaded ? "Сигналів від сервера ще не було." : "");
+    }
+    try {
+      const unsub = db.collection("health").doc("worker").onSnapshot(sn=>{ d = sn.exists ? sn.data() : null; loaded = true; paint(); },
+        ex=>{ workerChip.textContent = "Помилка читання"; workerInfo.textContent = String(ex.code||ex.message||ex); });
+      const tm = setInterval(()=>{ if (!document.body.contains(workerChip)){ clearInterval(tm); try{unsub();}catch(_){} return; } paint(); }, 15000);
     } catch(ex){ workerChip.textContent = "Помилка читання"; workerInfo.textContent = String(ex.code||ex.message||ex); }
   })();
 

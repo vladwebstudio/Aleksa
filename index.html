@@ -2555,13 +2555,13 @@ function renderSettings(root){
   const histList = el("div",{style:"display:flex;flex-direction:column;"});
   const histSel = el("select",{class:"input",style:"max-width:200px;"},
     el("option",{value:"all"},"Усі ролі"), el("option",{value:"manager"},"Менеджери"), el("option",{value:"admin"},"Адміни"), el("option",{value:"main_admin"},"Головний адмін"));
-  let histRows = [];
+  let histRows = [], histAll = false;
   function paintHist(){
     histList.replaceChildren();
     const f = histSel.value;
     const rows = histRows.filter(r => f==="all" || r.actorRole===f);
     if (!rows.length){ histList.appendChild(el("div",{class:"muted small",style:"padding:10px 0;"},"Поки порожньо.")); return; }
-    rows.forEach(r => {
+    (histAll ? rows : rows.slice(0,5)).forEach(r => {
       const t = r.ts && r.ts.toDate ? r.ts.toDate() : null;
       const who = (r.actorName||r.actorEmail||"?") + " · " + (ROLE_LABEL_UK[r.actorRole]||r.actorRole||"");
       const row = el("div",{style:"display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;"},
@@ -2572,8 +2572,12 @@ function renderSettings(root){
         r.details ? el("span",{class:"muted small"}, r.details) : null);
       histList.appendChild(row);
     });
+    if (rows.length > 5){
+      histList.appendChild(el("button",{class:"btn btn-ghost btn-sm",style:"align-self:flex-start;margin-top:10px;",
+        onclick:()=>{ histAll = !histAll; paintHist(); }}, histAll ? "Згорнути" : "Показати ще ("+(rows.length-5)+")"));
+    }
   }
-  histSel.addEventListener("change", paintHist);
+  histSel.addEventListener("change", ()=>{ histAll = false; paintHist(); });
   db.collection("audit").orderBy("ts","desc").limit(150).get().then(sn=>{ histRows = sn.docs.map(d=>d.data()); paintHist(); })
     .catch(ex=>{ histList.replaceChildren(el("div",{class:"muted small"},"Не вдалося прочитати журнал: "+(ex.code||ex.message||ex))); });
   const historyCard = el("div",{class:"card",style:"grid-column:1/-1;"},

@@ -2861,8 +2861,8 @@ function renderCallDetail(root, callId){
           const quotes = w.times.map(tt => ({ tt, line: quoteAtTime(d.transcript, tt) })).filter(x => x.line);
           return el("div",{class:"cv-card "+(w.severity==="critical"?"cv-card--crit":"cv-card--warn"), id: w.id?("cv-weak-"+w.id):undefined},
             w.criterion ? el("div",{class:"muted xs",style:"text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:4px;"}, "Критерій · "+w.criterion) : null,
-            el("div",{class:"cv-card__title"}, w.title),
-            el("div",{class:"cv-card__body",style:"margin-bottom:4px;"}, w.body),
+            el("div",{class:"cv-card__title"}, ...tcLinks(w.title)),
+            el("div",{class:"cv-card__body",style:"margin-bottom:4px;"}, ...tcLinks(w.body)),
             quotes.map(q => el("div",{class:"cv-quote", onclick: ()=>jumpToTranscript(q.tt)},
               el("span",{class:"cv-quote__time"}, q.tt),
               el("span",{class:"cv-quote__role"}, q.line.r),

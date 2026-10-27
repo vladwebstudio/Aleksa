@@ -140,6 +140,8 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 /* score ring */
 .score-ring{--val:0;--stroke:var(--border-strong);border-radius:50%;background:conic-gradient(var(--stroke) calc(var(--val) * 1%),var(--border) 0);display:inline-flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
 .score-ring::before{content:"";position:absolute;inset:5px;background:var(--surface);border-radius:50%}
+.score-ring--na{background:transparent;border:2px dashed var(--border-strong);box-sizing:border-box}
+.score-ring--na::before{display:none}
 .score-ring__text{position:relative;z-index:1;font-size:11px;font-weight:700;color:var(--text)}
 .calls-row__cell .score-ring__text{font-size:11px}
 
@@ -235,7 +237,7 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .cv-quote__role{display:inline-block;width:18px;text-align:center;font-weight:700;font-size:11px;color:var(--text-muted);background:var(--surface-2);border-radius:3px;padding:1px 0;margin-right:6px}
 .tr-line{transition:background .4s ease}
 .tr-line.is-hl{background:var(--brand-soft);border-radius:var(--r-sm)}
-.tr-box{max-height:620px;overflow:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
+.tr-box{max-height:none;overflow:visible;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
 .tr-plain{font-size:13.5px;line-height:1.7;padding:3px 6px;border-radius:4px;cursor:pointer;transition:background .25s ease;white-space:pre-wrap}
 .tr-plain:hover{background:#fff}
 .tr-plain.is-hl{background:#FEF08A !important;box-shadow:inset 2px 0 0 var(--warn)}
@@ -1787,11 +1789,11 @@ function renderProgress(root){
       const seen = new Set();
       (a.weaknesses||[]).forEach(w => { const k = w.criterion || w.title || ""; if (k) seen.add(k); });
       seen.forEach(k => wk.set(k, (wk.get(k)||0)+1));
-      (a.criteria||[]).forEach(c => { const k = c.name||c.title||""; if (!k) return; const o = cr.get(k)||{sum:0,n:0}; o.sum += Number(c.score)||0; o.n++; cr.set(k,o); });
+      (a.criteria||[]).forEach(c => { const k = c.name||c.title||""; if (!k || c.score==null) return; const o = cr.get(k)||{sum:0,n:0}; o.sum += Number(c.score)||0; o.n++; cr.set(k,o); });
     });
     const topWeak = [...wk.entries()].sort((x,y)=>y[1]-x[1]).slice(0,5).map(([label,cnt]) => ({label, cnt, pct: Math.round(cnt/Math.max(list.length,1)*100)}));
     const prevCr = new Map();
-    (prevList||[]).forEach(({a}) => (a.criteria||[]).forEach(c => { const k = c.name||c.title||""; if (!k) return; const o = prevCr.get(k)||{sum:0,n:0}; o.sum += Number(c.score)||0; o.n++; prevCr.set(k,o); }));
+    (prevList||[]).forEach(({a}) => (a.criteria||[]).forEach(c => { const k = c.name||c.title||""; if (!k || c.score==null) return; const o = prevCr.get(k)||{sum:0,n:0}; o.sum += Number(c.score)||0; o.n++; prevCr.set(k,o); }));
     const crit = [...cr.entries()].map(([name,o]) => { const pv = prevCr.get(name); return {name, n:o.n, pct:Math.round(o.sum/o.n), delta: pv ? Math.round(o.sum/o.n) - Math.round(pv.sum/pv.n) : null}; }).sort((x,y)=>y.n-x.n||x.name.localeCompare(y.name));
     const empty = txt => el("div",{class:"empty"}, loading ? "Завантаження…" : txt);
     const noCritTxt = list.length ? "У розмов за цей період немає оцінки по критеріях." : "За цей період немає розібраних розмов.";
@@ -2639,9 +2641,10 @@ function renderCallDetail(root, callId){
   // Compute overall score locally (do NOT mutate MOCK_CALLS)
   let computedScore = call.score;
   if (d.criteria && d.criteria.length){
-    const totalW = d.criteria.reduce((a,c)=>a+(c.weight||0), 0);
+    const rated = d.criteria.filter(c=>!c.na);
+    const totalW = rated.reduce((a,c)=>a+(c.weight||0), 0);
     if (totalW>0){
-      computedScore = Math.round(d.criteria.reduce((a,c)=>a + c.pct*(c.weight||0), 0) / totalW);
+      computedScore = Math.round(rated.reduce((a,c)=>a + c.pct*(c.weight||0), 0) / totalW);
     }
   }
   let chatMsgs = [];
@@ -2694,7 +2697,7 @@ function renderCallDetail(root, callId){
       if (a.pains)      d.pains      = a.pains.map(x => ({ text:x.text||String(x), t:x.t||x.ts||"", handled:!!x.handled }));
       if (a.objections) d.objections = a.objections.map(x => ({ text:x.text||String(x), t:x.t||x.ts||"", handled:!!x.handled }));
       if (typeof a.score === "number") computedScore = a.score;
-      if (Array.isArray(a.criteria)) d.criteria = a.criteria.map(c => ({ name:c.name||c.title||"", score:Number(c.score)||0, pct:Number(c.score)||0, comment:c.comment||"", weight:c.weight }));
+      if (Array.isArray(a.criteria)) d.criteria = a.criteria.map(c => { const na = (c.score==null || c.na===true); return { name:c.name||c.title||"", score:na?null:(Number(c.score)||0), pct:na?null:(Number(c.score)||0), na, comment:c.comment||"", weight:c.weight }; });
       if (a.client && typeof a.client==="object") d.client = { readiness: (a.client.readiness!=null ? Number(a.client.readiness) : null), profile: a.client.profile||"" };
       if (a.outcome) d.outcome = a.outcome;
       d.blame = (a.format==="qualification" && a.blame) ? a.blame : null;
@@ -2749,6 +2752,19 @@ function renderCallDetail(root, callId){
   function tcChip(t){
     return el("button",{class:"tc", onclick: ()=>seekTo(tcToSec(t))}, t);
   }
+  // Таймкоди [mm:ss] і діапазони [mm:ss–mm:ss] у тексті → кнопки (клік → рядок у транскрипті)
+  function tcLinks(str){
+    str = String(str==null ? "" : str);
+    const out = []; const re = /\[(\d{1,2}:\d{2}(?::\d{2})?)(?:\s*[–—-]\s*(\d{1,2}:\d{2}(?::\d{2})?))?\]/g; let last = 0, m;
+    while ((m = re.exec(str))){
+      if (m.index > last) out.push(str.slice(last, m.index));
+      const from = m[1], label = m[2] ? m[1]+"–"+m[2] : m[1];
+      out.push(el("button",{class:"tc", type:"button", title:"Відкрити в транскрипті", onclick:(e)=>{ e.stopPropagation(); jumpToTranscript(from); }}, label));
+      last = m.index + m[0].length;
+    }
+    if (last < str.length) out.push(str.slice(last));
+    return out;
+  }
   function jumpToTranscript(tt){
     seekTo(tcToSec(tt));
     callDetailState.tab = "transcript";
@@ -2770,9 +2786,7 @@ function renderCallDetail(root, callId){
       }
       if (!line) return;
       // scroll it into view, center
-      const boxRect = box.getBoundingClientRect();
-      const lineRect = line.getBoundingClientRect();
-      box.scrollTop = box.scrollTop + (lineRect.top - boxRect.top) - 60;
+      line.scrollIntoView({block:"center", behavior:"auto"});
       // highlight
       box.querySelectorAll(".tr-plain.is-hl").forEach(n => n.classList.remove("is-hl"));
       line.classList.add("is-hl");
@@ -2798,7 +2812,7 @@ function renderCallDetail(root, callId){
       )].concat(
         (d.criteria||[]).map(c => el("div",{class:"cv-crit-cell cv-crit-cell--click", title:"Чому така оцінка", onclick:()=>goScriptCrit(c.name)},
           el("div",{class:"cv-crit-cell__name"}, c.name),
-          scoreRing(c.pct, 44),
+          c.na ? el("div",{class:"score-ring score-ring--na",style:"width:44px;height:44px;",title:"Не оцінюється: розмова не дійшла до цього етапу"}, el("span",{class:"score-ring__text"},"—")) : scoreRing(c.pct, 44),
           c.weight ? el("div",{class:"cv-crit-cell__w"}, "складає " + c.weight + "%") : null
         ))))
   ) : null; }
@@ -2876,7 +2890,7 @@ function renderCallDetail(root, callId){
         el("div",{class:"cv-card__title"},"Виконання скрипта по критеріях"),
         el("div",{class:"muted small",style:"margin:2px 0 6px;"},"Натисни на критерій, щоб побачити, чому така оцінка"),
         d.criteria.map(c => {
-          const col = c.score>=80?"var(--success)":c.score>=60?"var(--warn)":"var(--danger)";
+          const col = c.na ? "var(--text-muted)" : (c.score>=80?"var(--success)":c.score>=60?"var(--warn)":"var(--danger)");
           const rel = (d.weaknesses||[]).filter(w => w.criterion===c.name);
           const row = el("div",{class:"crit"+(callDetailState.openCrit===c.name?" is-open":""), "data-crit":c.name},
             el("div",{class:"crit__head", onclick:()=>{
@@ -2885,16 +2899,16 @@ function renderCallDetail(root, callId){
             }},
               el("div",{class:"crit__top"},
                 el("span",{style:"font-weight:500;font-size:13.5px;"}, el("span",{class:"crit__chev"},"▶"), c.name + (c.weight ? " · складає "+c.weight+"%" : "")),
-                el("span",{style:"font-weight:700;color:"+col+";"}, c.score+"%")),
-              el("div",{class:"bar"}, el("span",{style:"width:"+c.score+"%;background:"+col+";"}))),
+                el("span",{style:"font-weight:700;color:"+col+";"}, c.na ? "не оцінюється" : c.score+"%")),
+              el("div",{class:"bar"}, el("span",{style:"width:"+(c.na?0:c.score)+"%;background:"+col+";"}))),
             el("div",{class:"crit__wrap"}, el("div",{},
               el("div",{class:"crit__body"},
-                el("div",{class:"crit__why"}, c.comment || "Пояснення поки немає."),
+                el("div",{class:"crit__why"}, ...(c.comment ? tcLinks(c.comment) : ["Пояснення поки немає."])),
                 rel.length ? rel.map(w => {
                   const q = w.times && w.times[0] ? quoteAtTime(d.transcript, w.times[0]) : null;
                   return el("div",{class:"crit__rel"},
                     el("div",{style:"font-weight:600;font-size:13px;margin-bottom:2px;"}, w.title),
-                    w.body ? el("div",{class:"muted small"}, w.body) : null,
+                    w.body ? el("div",{class:"muted small"}, ...tcLinks(w.body)) : null,
                     q ? el("div",{class:"cv-quote",style:"margin-top:6px;",onclick:()=>jumpToTranscript(w.times[0])},
                       el("span",{class:"cv-quote__time"}, w.times[0]),
                       el("span",{}, "«"+q.text+"»")) : null);

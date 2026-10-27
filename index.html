@@ -860,6 +860,12 @@ function stopCallsSubscription(){
   if (window.__callsSub){ try { window.__callsSub(); } catch(_){} window.__callsSub = null; }
 }
 function callsAll(){ return window.__calls || []; }
+// Підпис видимих полів усіх розмов: сторінки перемальовуються лише коли він змінився
+// (а не від кожного службового оновлення — прогрес, heartbeat, updatedAt тощо), інакше екран «моргає».
+function callsSig(){
+  try { return JSON.stringify((window.__calls||[]).map(c=>[c.id,c.status,c.stage,c.score,c.format,c.outcome,c.managerEmail,c.startedAt,c.title,c.client,c.summaryShort,c.isTest,c.error,c.durationSec,c.live,c.isLive,c.deleted])); }
+  catch(_){ return String(Math.random()); }
+}
 // слабкі місця з позначкою severity: "critical" (червоні, важливіші) або "warn" (жовті).
 const MOCK_WEAKNESSES = [];
 
@@ -1566,7 +1572,9 @@ function renderCalls(root){
   const listWrap = el("div",{});
   // Auto-refresh when worker updates calls (store on window to dedupe across re-renders)
   if (window.__callsListener) window.removeEventListener(CALLS_CHANGED_EVT, window.__callsListener);
+  let lastSig = callsSig();
   window.__callsListener = ()=>{
+    const s = callsSig(); if (s === lastSig) return; lastSig = s;
     try { if (document.body.contains(root) && document.body.contains(listWrap)) updateList(); } catch(e){}
   };
   window.addEventListener(CALLS_CHANGED_EVT, window.__callsListener);
@@ -3460,6 +3468,7 @@ function ensureRoot(){
   return r;
 }
 function render(){
+  try { window.__lastListSig = parseHash().route+"|"+callsSig(); } catch(_){ window.__lastListSig = null; }
   if (!activeUser){ closeFullscreen(); renderLogin(ensureRoot()); return; }
   if (activeUser.status==="disabled"){
     document.querySelectorAll("nav.navbar").forEach(n=>n.remove());
@@ -3534,6 +3543,9 @@ window.addEventListener(CALLS_CHANGED_EVT, ()=>{
     return;
   }
   if (["overview","calls","progress"].includes(route)){
+    const sg = callsSig(); const key = route+"|"+sg;
+    if (window.__lastListSig === key) return;   // нічого видимого не змінилось — не перемальовуємо
+    window.__lastListSig = key;
     const shell = document.getElementById("app");
     if (!shell) return;
     const fn = ROUTES["#/"+route];

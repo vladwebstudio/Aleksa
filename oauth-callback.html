@@ -96,6 +96,19 @@ function setStatus(cls, title, msg){ statusEl.className = "status " + cls; statu
     return;
   }
 
+  // запис у журнал дій (розробник не логується)
+  try {
+    const us = await db.collection("users").doc(user.email).get();
+    const ud = us.exists ? us.data() : {};
+    if (ud.role !== "developer"){
+      await db.collection("audit").add({
+        ts: firebase.firestore.FieldValue.serverTimestamp(),
+        actorEmail: user.email, actorName: ud.name || "", actorRole: ud.role || "manager",
+        action: "youtube_connect", callId: null, callTitle: null, details: null,
+      });
+    }
+  } catch(_){}
+
   try { sessionStorage.removeItem("yt_oauth_state"); sessionStorage.removeItem("yt_oauth_email"); } catch(e){}
 
   setStatus("ok", "✓ Код отримано", "Воркер підхопить його і підключить канал. Можна повернутись на сайт.");

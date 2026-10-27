@@ -1375,6 +1375,9 @@ const PERIODS = [
 function getOverviewPeriod(){ return localStorage.getItem("alexa_period_overview") || "today"; }
 function setOverviewPeriod(k){ localStorage.setItem("alexa_period_overview", k); }
 
+// У середню оцінку йдуть лише повні діагностики (sales). Дожим і кваліфікація (ЦА чи ні) — окремо, у середню не входять.
+// Старі розмови без поля format вважаємо повними.
+function isFullCall(c){ return !c.format || c.format==="sales" || c.format==="offline"; }
 function renderOverview(root){
   const period = getOverviewPeriod();
   const calls  = overviewFiltered(period);
@@ -1687,10 +1690,10 @@ function renderProgress(root){
     if (progressState.period==="custom" && progressState.from && progressState.to) { from = progressState.from; to = new Date(progressState.to.getTime()+86400000); }
     const mine = callsAll().filter(c => isManager || who==="all" || c.managerEmail===who);
     const inP = mine.filter(c => { const t=new Date(c.startedAt); return t>=from && t<to; });
-    const sc = inP.filter(c => c.status==="done" && !c.isTest && typeof c.score==="number").map(c=>c.score);
+    const sc = inP.filter(c => c.status==="done" && !c.isTest && isFullCall(c) && typeof c.score==="number").map(c=>c.score);
     const avg = a => a.length ? Math.round(a.reduce((x,y)=>x+y,0)/a.length) : 0;
     const now = Date.now(), W = 7*86400000;
-    const sw = (a,b) => mine.filter(c => c.status==="done" && !c.isTest && typeof c.score==="number" && now-b<=new Date(c.startedAt) && new Date(c.startedAt)<now-a).map(c=>c.score);
+    const sw = (a,b) => mine.filter(c => c.status==="done" && !c.isTest && isFullCall(c) && typeof c.score==="number" && now-b<=new Date(c.startedAt) && new Date(c.startedAt)<now-a).map(c=>c.score);
     const cur = sw(0,W), prev = sw(W,2*W);
     // попередній період такої ж довжини (для динаміки по критеріях)
     let prevCalls = [];
@@ -1748,8 +1751,8 @@ function renderProgress(root){
     return managersList().map(m => {
       const all = data.mine.filter(c => c.managerEmail===m.email);
       const inP = data.inP.filter(c => c.managerEmail===m.email);
-      const sc = inP.filter(c=>c.status==="done" && !c.isTest && typeof c.score==="number").map(c=>c.score);
-      const wk = (a,b) => all.filter(c=>c.status==="done" && !c.isTest && typeof c.score==="number" && now-b<=new Date(c.startedAt) && new Date(c.startedAt)<now-a).map(c=>c.score);
+      const sc = inP.filter(c=>c.status==="done" && !c.isTest && isFullCall(c) && typeof c.score==="number").map(c=>c.score);
+      const wk = (a,b) => all.filter(c=>c.status==="done" && !c.isTest && isFullCall(c) && typeof c.score==="number" && now-b<=new Date(c.startedAt) && new Date(c.startedAt)<now-a).map(c=>c.score);
       const cur = wk(0,W), prev = wk(W,2*W);
       return { email:m.email, calls:inP.length, avg:avgOf(sc), has:sc.length>0, delta:(cur.length&&prev.length)?avgOf(cur)-avgOf(prev):0 };
     }).filter(r=>r.calls>0).sort((a,b)=>b.avg-a.avg);
@@ -1765,7 +1768,7 @@ function renderProgress(root){
         userAva(mgr),
         el("div",{},
           el("div",{class:"list-row__name"}, mgr.name||mgr.email),
-          el("div",{class:"list-row__sub"}, ms.calls+" розмов · середня оцінка")),
+          el("div",{class:"list-row__sub"}, ms.calls+" розмов · середня оцінка (повні діагностики)")),
         el("div",{style:"display:flex;align-items:center;gap:12px;"},
           el("span",{style:"font-weight:700;font-size:16px;color:"+(ms.has?col:"var(--text-muted)")+";"}, ms.has?ms.avg+"%":"—"),
           el("span",{style:"color:"+dcol+";font-weight:600;font-size:12px;"}, (ms.delta>=0?"+":"")+ms.delta+"%"),

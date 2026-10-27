@@ -468,14 +468,14 @@ function canActOn(a,t){
   if (!a||!t) return false;
   if (a.role===ROLES.DEVELOPER) return true;
   if (a.role===ROLES.MAIN_ADMIN) return t.role!==ROLES.DEVELOPER;
-  if (a.role===ROLES.ADMIN)      return t.promotedBy===a.uid;
+  if (a.role===ROLES.ADMIN)      return t.role===ROLES.MANAGER;
   return false;
 }
 function assignableRolesFor(actor){
   if (!actor) return [];
   if (actor.role===ROLES.DEVELOPER)  return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.MANAGER];
   if (actor.role===ROLES.MAIN_ADMIN) return [ROLES.ADMIN, ROLES.MANAGER];
-  if (actor.role===ROLES.ADMIN)      return [ROLES.MANAGER];
+  if (actor.role===ROLES.ADMIN)      return [ROLES.ADMIN, ROLES.MANAGER];
   return [];
 }
 
@@ -2300,9 +2300,9 @@ async function renderUsers(root){
   const filtered = sorted.filter(u => !u.deleted && (!q || (u.email+" "+(u.name||"")).toLowerCase().includes(q)));
   const deletedList = sorted.filter(u => u.deleted).sort((a,b)=>(b.deletedAtMs||0)-(a.deletedAtMs||0));   // нові видалені — зверху
 
-  const rows = filtered.map(u => {
-    const canAct = canActOn(actor, u) && u.uid!==actor.uid;
-    const canEditProfile = actor.role===ROLES.DEVELOPER || actor.role===ROLES.MAIN_ADMIN || actor.role===ROLES.ADMIN;
+const rows = filtered.map(u => {
+    const canAct = canActOn(actor, u) && u.email!==actor.email;
+    const canEditProfile = canActOn(actor, u);
     const actions = el("div",{style:"display:flex;gap:6px;justify-content:flex-end;align-items:center;"});
     if (canEditProfile){
       actions.append(el("button",{class:"btn btn-ghost btn-sm",title:"Редагувати імʼя / фото",

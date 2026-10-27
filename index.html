@@ -742,11 +742,13 @@ function dateRangeBtn({ start, end, onChange, defaultRange }){
 /* ---------- Firestore API ---------- */
 async function getCurrentUser(){
   const u=auth.currentUser; if (!u) return null;
-  const snap=await db.collection("users").doc(u.email).get();
+  const mail = String(u.email||"").toLowerCase();
+  let snap=await db.collection("users").doc(mail).get();
+  if (!snap.exists && mail !== u.email) snap=await db.collection("users").doc(u.email).get();   // старі документи з великими літерами
   const d=snap.exists?snap.data():{};
   // self-heal: записать auth uid в users/{email}, если его там ещё нет
   if (snap.exists && !d.uid){
-    try { await db.collection("users").doc(u.email).update({ uid: u.uid }); d.uid = u.uid; }
+    try { await snap.ref.update({ uid: u.uid }); d.uid = u.uid; }
     catch(_){}
   }
   if (d.status==="deleted"){ try { await auth.signOut(); } catch(_){} return null; }   // видалений менеджер не заходить
@@ -795,6 +797,7 @@ function startYouTubeOAuthFlow(email){
 }
 
 async function createNewUser(email,password,role,actorUid,name){
+  email = String(email||"").trim().toLowerCase();   // Firebase Auth зберігає email малими літерами; id документа має збігатись
   const sec = firebase.apps.find(a=>a.name==="sec") || firebase.initializeApp(FIREBASE_CONFIG,"sec");
   const secAuth = sec.auth();
   const cred = await secAuth.createUserWithEmailAndPassword(email,password);

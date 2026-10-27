@@ -2269,7 +2269,7 @@ async function renderUsers(root){
   const q = (callsState._usersSearch||"").trim().toLowerCase();
 
   const filtered = sorted.filter(u => !u.deleted && (!q || (u.email+" "+(u.name||"")).toLowerCase().includes(q)));
-  const deletedList = sorted.filter(u => u.deleted && u.role===ROLES.MANAGER).sort((a,b)=>(b.deletedAtMs||0)-(a.deletedAtMs||0));   // нові видалені — зверху
+  const deletedList = sorted.filter(u => u.deleted).sort((a,b)=>(b.deletedAtMs||0)-(a.deletedAtMs||0));   // нові видалені — зверху
 
   const rows = filtered.map(u => {
     const canAct = canActOn(actor, u) && u.uid!==actor.uid;
@@ -2335,14 +2335,14 @@ async function renderUsers(root){
           el("th",{},"Користувач"), el("th",{},"Роль"), el("th",{style:"text-align:right;"},"Дії"))),
         el("tbody",{}, rows.length?rows:el("tr",{},el("td",{colspan:3,class:"empty"},"Нічого не знайдено."))))),
     deletedList.length ? el("div",{class:"card",style:"margin-top:var(--s-4);"},
-      el("div",{class:"section-title"}, el("span",{},"Видалені менеджери")),
-      el("div",{class:"muted xs",style:"margin-bottom:8px;"},"Входу нема, але їхні розмови й аналізи лишаються на сайті. «Очистити історію» стирає всі розмови менеджера назавжди."),
+      el("div",{class:"section-title"}, el("span",{},"Видалені користувачі")),
+      el("div",{class:"muted xs",style:"margin-bottom:8px;"},"Входу нема, але розмови й аналізи менеджерів лишаються на сайті. «Очистити історію» стирає всі розмови менеджера назавжди; після цього з'являється «Прибрати повністю»."),
       ...deletedList.map(u => {
         const n = callsAll().filter(c => c.managerEmail===u.email).length;
         return el("div",{style:"display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border);flex-wrap:wrap;"},
-          el("div",{style:"flex:1;min-width:160px;"}, el("div",{style:"font-weight:500;"}, u.name), el("div",{class:"muted xs"}, u.email+" · розмов: "+n)),
+          el("div",{style:"flex:1;min-width:160px;"}, el("div",{style:"font-weight:500;"}, u.name), el("div",{class:"muted xs"}, u.email+" · "+(ROLE_LABEL_UK[u.role]||u.role)+(u.role===ROLES.MANAGER ? " · розмов: "+n : ""))),
           canActOn(actor,u) ? el("button",{class:"btn btn-ghost btn-sm", onclick: async ()=>{ try { await restoreUserDoc(u.email); logAction("restore_user", null, u.email); refresh(); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Відновити") : null,
-          canActOn(actor,u) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick:()=>openPurgeModal(u, n, refresh)}, "Очистити історію") : null,
+          (canActOn(actor,u) && u.role===ROLES.MANAGER) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick:()=>openPurgeModal(u, n, refresh)}, "Очистити історію") : null,
           (canActOn(actor,u) && n===0) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick: async ()=>{
             const ok = await confirmModal("Прибрати «"+u.name.replace(" (видалений)","")+"» повністю?",
               "Менеджер зникне зі списків і з системи."+(n ? " Його розмови ("+n+" шт.) ЛИШАТЬСЯ, але без імені — лише з поштою. Якщо вони не потрібні, спочатку натисни «Очистити історію»." : ""), "Так, прибрати повністю");

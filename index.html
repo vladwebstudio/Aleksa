@@ -53,6 +53,10 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .navbar__menu{display:flex;gap:2px;flex:1}
 .navbar__item{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r-pill);color:var(--text-muted);font-weight:500;font-size:13.5px;transition:all var(--dur) var(--ease)}
 .navbar__item svg{width:16px;height:16px}
+.navbar__item.has-warn,.icon-btn.has-warn{outline:2px solid var(--warn);outline-offset:1px;animation:attnPulse 2.2s ease-in-out infinite}
+.navbar__item.has-danger{outline:2px solid var(--danger);outline-offset:1px;animation:attnPulseR 2.2s ease-in-out infinite}
+@keyframes attnPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,179,1,0)}50%{box-shadow:0 0 0 5px rgba(245,179,1,.28)}}
+@keyframes attnPulseR{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 0 5px rgba(239,68,68,.25)}}
 .navbar__item:hover{background:var(--brand-soft);color:var(--brand)}
 .navbar__item.is-active{background:var(--brand);color:#fff;box-shadow:var(--brand-shadow)}
 .navbar__actions{display:flex;align-items:center;gap:var(--s-2);position:relative}
@@ -1017,6 +1021,33 @@ const MENU_META = {
   users:{label:"Користувачі",hash:"#/users",icon:"users"},
   settings:{label:"Налаштування",hash:"#/settings",icon:"settings"},
 };
+/* ---------- Підсвітка «зверни увагу» (жовта/червона обводка) ---------- */
+let _attnUnsubs = [];
+function watchAttention(user, settingsItem, gearBtn){
+  _attnUnsubs.forEach(u=>{ try{u();}catch(_){} }); _attnUnsubs = [];
+  const isAdminPlus = ["admin","main_admin","developer"].includes(user.role);
+  if (isAdminPlus && settingsItem){
+    let limit = 10, u = {};
+    const paint = ()=>{
+      const spent = Math.max(Number(u.analysisCostUsd||0)+Number(u.chatCostUsd||0), Number(u.realCostUsd||0));
+      const pct = limit>0 ? spent/limit*100 : 0;
+      settingsItem.classList.toggle("has-danger", pct>=100);
+      settingsItem.classList.toggle("has-warn", pct>=90 && pct<100);
+      settingsItem.title = pct>=100 ? "Ліміт ІІ вичерпано — ІІ зупинено" : pct>=90 ? "Витрачено понад 90% ліміту ІІ" : "";
+    };
+    const d = new Date(); const mk = d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");
+    _attnUnsubs.push(db.collection("settings").doc("ai").onSnapshot(sn=>{ const c = sn.exists ? sn.data() : {}; if (c.limitUsd) limit = Number(c.limitUsd); paint(); }, ()=>{}));
+    _attnUnsubs.push(db.collection("usage").doc(mk).onSnapshot(sn=>{ u = sn.exists ? sn.data() : {}; paint(); }, ()=>{}));
+  }
+  if (user.role === "manager" && gearBtn){
+    _attnUnsubs.push(db.collection("channels").doc(user.email).onSnapshot(sn=>{
+      const ok = sn.exists && sn.data().status === "active";
+      gearBtn.classList.toggle("has-warn", !ok);
+      gearBtn.title = ok ? "Налаштування профілю" : (sn.exists ? "Потрібно підключити YouTube знову" : "Підключи свій YouTube канал");
+    }, ()=>{}));
+  }
+}
+
 function navbar(user, activeKey){
   const items=(MENU_BY_ROLE[user.role]||MENU_BY_ROLE.manager).map(k=>{
     const m=MENU_META[k];
@@ -1029,6 +1060,8 @@ function navbar(user, activeKey){
   const nameBtn = el("button",{class:"navbar__name", title:"Профіль",
     onclick: ()=>openProfileSettingsModal(user)},
     el("span",{}, user.name || user.email.split("@")[0]));
+
+  try { watchAttention(user, items.find(a=>a.getAttribute("href")==="#/settings"), gearBtn); } catch(ex){ console.warn("attention:", ex); }
 
   return el("nav",{class:"navbar"},
     el("div",{class:"navbar__menu"}, items),
@@ -2385,7 +2418,7 @@ function renderSettings(root){
   const costBar = el("span",{style:"width:0%;"});
   const costInfo = el("div",{class:"muted small",style:"margin-top:10px;line-height:1.6;"},"");
   const costWarn = el("div",{style:"margin-top:10px;font-size:13px;line-height:1.5;display:none;border-radius:10px;padding:10px 12px;"},"");
-  const limitI = el("input",{type:"number",min:"1",step:"1",class:"input",style:"width:110px;text-align:center;"});
+  const limitI = el("input",{type:"number",min:"0.01",step:"any",inputmode:"decimal",class:"input",style:"width:110px;text-align:center;"});
   const limitSave = el("button",{class:"btn btn-primary btn-sm"},"Зберегти ліміт");
   let usageDoc = {};
   function paintCost(){

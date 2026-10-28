@@ -501,7 +501,12 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   .toast{bottom:90px !important}
   /* скрипти: список продуктів зверху, редактор нижче */
   div[style*="grid-template-columns:280px 1fr"]{grid-template-columns:1fr !important}
-  .card[style*="grid-template-columns:1fr 100px 36px"]{grid-template-columns:minmax(0,1fr) 64px 32px !important;padding:10px !important}
+  .card[style*="grid-template-columns:1fr 100px 36px"]{grid-template-columns:minmax(0,1fr) auto !important;grid-template-areas:"main main" "weight del";padding:12px !important;gap:10px !important;align-items:center !important}
+  .card[style*="grid-template-columns:1fr 100px 36px"] > :nth-child(1){grid-area:main}
+  .card[style*="grid-template-columns:1fr 100px 36px"] > :nth-child(1) textarea{min-height:92px}
+  .card[style*="grid-template-columns:1fr 100px 36px"] > :nth-child(2){grid-area:weight;flex-direction:row !important;align-items:center !important;justify-content:flex-start;gap:8px !important}
+  .card[style*="grid-template-columns:1fr 100px 36px"] > :nth-child(2) input{width:76px}
+  .card[style*="grid-template-columns:1fr 100px 36px"] > :nth-child(3){grid-area:del;justify-self:end}
   textarea,.input{min-width:0;max-width:100%}
   .page-title{font-size:20px}
   .cv-modal__body--plain{padding:14px}
@@ -583,6 +588,12 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   .cal__footer{position:sticky;bottom:0;background:var(--surface);padding-bottom:4px}
   .cal__footer button{padding:8px 12px}
   .cal__quick button{padding:6px 10px}
+}
+
+@media (max-width:700px){
+  /* короткі підписи в нижньому меню, щоб не обрізались */
+  .navbar__item .nl{display:none}
+  .navbar__item::after{content:attr(data-short);display:block}
 }
 </style>
 </head>
@@ -1409,10 +1420,10 @@ function renderLogin(root){
 const MENU_META = {
   overview:{label:"Огляд",hash:"#/overview",icon:"overview"},
   calls:{label:"Розмови",hash:"#/calls",icon:"calls"},
-  progress:{label:"Мій прогрес",hash:"#/progress",icon:"progress"},
+  progress:{label:"Мій прогрес",short:"Прогрес",hash:"#/progress",icon:"progress"},
   scripts:{label:"Скрипти",hash:"#/scripts",icon:"scripts"},
-  users:{label:"Користувачі",hash:"#/users",icon:"users"},
-  settings:{label:"Налаштування",hash:"#/settings",icon:"settings"},
+  users:{label:"Користувачі",short:"Люди",hash:"#/users",icon:"users"},
+  settings:{label:"Налаштування",short:"Налашт.",hash:"#/settings",icon:"settings"},
 };
 /* ---------- Підсвітка «зверни увагу» (жовта/червона обводка) ---------- */
 let _attnUnsubs = [];
@@ -1444,7 +1455,7 @@ function watchAttention(user, settingsItem, gearBtn){
 function navbar(user, activeKey){
   const items=(MENU_BY_ROLE[user.role]||MENU_BY_ROLE.manager).map(k=>{
     const m=MENU_META[k];
-    return el("a",{class:"navbar__item"+(k===activeKey?" is-active":""),href:m.hash}, ICONS[m.icon](), m.label);
+    return el("a",{class:"navbar__item"+(k===activeKey?" is-active":""),href:m.hash,"data-short":(m.short||m.label)}, ICONS[m.icon](), el("span",{class:"nl"}, m.label));
   });
 
   const gearBtn = el("button",{class:"icon-btn",title:"Налаштування профілю",

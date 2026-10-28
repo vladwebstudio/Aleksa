@@ -218,6 +218,11 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .cv-card--obj{border-left:4px solid #8B5CF6;background:#F5F3FF}
 .cv-card__title{font-weight:600;font-size:14px;margin-bottom:6px}
 .cv-card__body{color:var(--text-muted);font-size:13.5px;line-height:1.5}
+.pay-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pay-pill{display:inline-flex;align-items:center;padding:5px 12px;border-radius:var(--r-pill);font-weight:600;font-size:13px}
+.pay-pill--yes{background:var(--success-soft);color:#166534}
+.pay-pill--no{background:#F1F5F9;color:#475569}
+.pay-note{color:var(--text-muted);font-size:13.5px}
 .tc{display:inline-flex;align-items:center;gap:3px;background:var(--brand-soft);color:var(--brand);padding:3px 10px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:12px;font-weight:600;cursor:pointer;border:0;transition:all var(--dur) var(--ease);margin-right:6px}
 .tc:hover{background:var(--brand);color:#fff}
 .cv-player{position:relative}
@@ -986,11 +991,12 @@ const CALL_DETAIL_OVERRIDES = {};
 // Плашка «Чи була оплата» (поле payment з аналізу; для старих розмов без поля — не показуємо)
 function paymentCard(p){
   if (!p || !p.status) return null;
-  const L = { none:"Ні", booking:"Так, бронь", installments:"Так, оплата частинами", full:"Так, повна оплата" };
+  const L = { none:"— Оплати не було", booking:"✓ Бронь", installments:"✓ Оплата частинами", full:"✓ Повна оплата" };
   const yes = p.status!=="none";
   return el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Чи була оплата"),
-    el("div",{class:"cv-card__body",style:"font-weight:600;color:"+(yes?"var(--success,#16a34a)":"inherit")+";"}, L[p.status]||"Ні"),
-    p.note ? el("div",{class:"muted small",style:"margin-top:2px;"}, p.note) : null);
+    el("div",{class:"pay-row"},
+      el("span",{class:"pay-pill "+(yes?"pay-pill--yes":"pay-pill--no")}, L[p.status]||L.none),
+      p.note ? el("span",{class:"pay-note"}, p.note) : null));
 }
 function callDetailMock(call){
   // Реальні дані підтягуються з Firestore (chunks, analysis/main). Поки їх нема — порожньо.

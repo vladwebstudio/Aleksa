@@ -51,19 +51,39 @@ const statusEl = document.getElementById("status");
 const detailEl = document.getElementById("detail");
 function setStatus(cls, title, msg){ statusEl.className = "status " + cls; statusEl.textContent = title; detailEl.textContent = msg; }
 
+// запис у журнал дій (розробник не логується); тихо ігнорує помилки
+async function auditLog(action, details){
+  try {
+    const user = await new Promise(res=>{ const un = auth.onAuthStateChanged(u=>{ un(); res(u); }); });
+    if (!user) return;
+    const us = await db.collection("users").doc(String(user.email).toLowerCase()).get();
+    const ud = us.exists ? us.data() : {};
+    if (ud.role === "developer") return;
+    await db.collection("audit").add({
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      actorEmail: user.email, actorName: ud.name || "", actorRole: ud.role || "manager",
+      action, callId: null, callTitle: null, details: details || null,
+    });
+  } catch(_){}
+}
+
 (async ()=>{
   const params = new URLSearchParams(window.location.search);
   const code  = params.get("code");
   const state = params.get("state");
   const error = params.get("error");
 
-  if (error){ setStatus("err", "✗ Відмовлено Google", "Код помилки: " + error + ". Спробуй ще раз з модалки профілю."); return; }
+  if (error){
+    await auditLog(error === "access_denied" ? "youtube_connect_cancel" : "youtube_connect_fail", "Google: " + error);
+    setStatus("err", "✗ Відмовлено Google", "Код помилки: " + error + ". Спробуй ще раз з модалки профілю."); return;
+  }
   if (!code){ setStatus("err", "✗ Немає коду", "URL не містить ?code=... Можливо, ти відкрив цю сторінку напряму."); return; }
 
   // Verify state
   let savedState = ""; let savedEmail = "";
   try { savedState = sessionStorage.getItem("yt_oauth_state") || ""; savedEmail = sessionStorage.getItem("yt_oauth_email") || ""; } catch(e){}
   if (!savedState || savedState !== state){
+    await auditLog("youtube_connect_fail", "сесія браузера очищена або не збігся state — почни підключення заново");
     setStatus("err", "✗ State не збігається", "Можлива атака CSRF або сесія браузера очищена. Почни заново.");
     return;
   }
@@ -77,6 +97,7 @@ function setStatus(cls, title, msg){ statusEl.className = "status " + cls; statu
     return;
   }
   if (user.email !== savedEmail){
+    await auditLog("youtube_connect_fail", "підключення почато для іншого акаунта (" + savedEmail + ")");
     setStatus("err", "✗ Інший акаунт", "Ти увійшов на сайт як " + user.email + ", але підключення починалось для " + savedEmail + ".");
     return;
   }
@@ -92,6 +113,7 @@ function setStatus(cls, title, msg){ statusEl.className = "status " + cls; statu
       redirectUri: window.location.origin + window.location.pathname.replace(/[^\/]*$/, "") + "oauth-callback.html",
     });
   } catch(ex){
+    await auditLog("youtube_connect_fail", "не вдалося зберегти код: " + (ex.code||ex.message||String(ex)).slice(0,100));
     setStatus("err", "✗ Не вдалось зберегти в Firestore", (ex.code||ex.message||String(ex)) + ". Перевір правила Firestore для youtubeAuthCodes.");
     return;
   }

@@ -222,6 +222,8 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .pay-pill{display:inline-flex;align-items:center;padding:5px 12px;border-radius:var(--r-pill);font-weight:600;font-size:13px}
 .pay-pill--yes{background:var(--success-soft);color:#166534}
 .pay-pill--no{background:#F1F5F9;color:#475569}
+.pay-pill--unclear{background:var(--warn-soft);color:#92600A}
+.pay-quote{margin-top:8px;padding-left:10px;border-left:3px solid var(--border);color:var(--text-muted);font-size:13px;font-style:italic;line-height:1.45}
 .pay-note{color:var(--text-muted);font-size:13.5px}
 .tc{display:inline-flex;align-items:center;gap:3px;background:var(--brand-soft);color:var(--brand);padding:3px 10px;border-radius:var(--r-sm);font-family:var(--font-mono);font-size:12px;font-weight:600;cursor:pointer;border:0;transition:all var(--dur) var(--ease);margin-right:6px}
 .tc:hover{background:var(--brand);color:#fff}
@@ -1014,16 +1016,19 @@ const CALL_DETAIL_OVERRIDES = {};
 // Плашка «Чи була оплата» (поле payment з аналізу; для старих розмов без поля — не показуємо)
 function paymentCard(p){
   if (!p || !p.status) return null;
-  const L = { none:"— Оплати не було", booking:"✓ Бронь", installments:"✓ Оплата частинами", full:"✓ Повна оплата" };
-  // захист від суперечності: заметка з запереченням («оплати не було», «лише обговорювалась») → показуємо «Ні»
-  const NEG=["не було","не вніс","не внес","не оплат","не відбул","ще не","лише обговор","обговорювал","обіця","планує","подума","відмов","потім","пізніше","завтра","можлив"];
-  const low=String(p.note||"").toLowerCase();
-  if (p.status!=="none" && NEG.some(w=>low.includes(w))) p = Object.assign({}, p, { status:"none" });
-  const yes = p.status!=="none";
+  // Нові аналізи (v:2): статус підтверджений дослівною цитатою з розшифровки, нотатку збирає сервер — тут лише показуємо.
+  // Старі аналізи (без v): статус і нотатку писала модель вільним текстом. Лише явне «оплати не було» на початку нотатки
+  // сприймаємо як «Ні»; інші суперечності не вгадуємо — для старих можна перезапустити аналіз.
+  let st = p.status;
+  if (!p.v && st!=="none" && /^\s*оплати не було/i.test(String(p.note||""))) st = "none";
+  const L = { none:"— Оплати не було", booking:"✓ Бронь", installments:"✓ Оплата частинами", full:"✓ Повна оплата", unclear:"? Не зрозуміло" };
+  const cls = st==="none" ? "pay-pill--no" : st==="unclear" ? "pay-pill--unclear" : "pay-pill--yes";
+  const note = (st==="none" && !p.v) ? String(p.note||"").replace(/^\s*оплати не було[;:,.\s]*/i,"") : (p.note||"");
   return el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Чи була оплата"),
     el("div",{class:"pay-row"},
-      el("span",{class:"pay-pill "+(yes?"pay-pill--yes":"pay-pill--no")}, L[p.status]||L.none),
-      p.note ? el("span",{class:"pay-note"}, p.note) : null));
+      el("span",{class:"pay-pill "+cls}, L[st]||L.unclear),
+      note ? el("span",{class:"pay-note"}, note) : null),
+    (p.quote && st!=="none" && st!=="unclear") ? el("div",{class:"pay-quote"}, "«"+p.quote+"»"+(p.ts?" · "+p.ts:"")) : null);
 }
 function callDetailMock(call){
   // Реальні дані підтягуються з Firestore (chunks, analysis/main). Поки їх нема — порожньо.

@@ -761,9 +761,8 @@ async function getCurrentUser(){
            role:d.role||ROLES.MANAGER, status:d.status||"active", aiBlocked:!!d.aiBlocked,
            promotedBy:d.promotedBy||null, photoURL:d.photoURL||null };
 }
-async function listUsers(){
-  const qs=await db.collection("users").get();
-  return qs.docs.map(s=>{
+function mapUserDocs(docs){
+  return docs.map(s=>{
     const d=s.data();
     const isDel = d.status==="deleted";
     return { uid:s.id, email:d.email||s.id, name:(d.name||s.id.split("@")[0]) + (isDel ? " (видалений)" : ""), deleted:isDel, deletedAtMs:(d.deletedAt&&d.deletedAt.toMillis)?d.deletedAt.toMillis():0,
@@ -771,6 +770,37 @@ async function listUsers(){
              promotedBy:d.promotedBy||null, photoURL:d.photoURL||null };
   });
 }
+async function listUsers(){
+  const qs=await db.collection("users").get();
+  return mapUserDocs(qs.docs);
+}
+// «Живий» список користувачів: одне читання при вході, далі Firestore надсилає лише змінені документи
+const USERS_CHANGED_EVT = "alexa-users-changed";
+window.__usersWatch = null;
+function startUsersWatch(withSecrets){
+  if (window.__usersWatch) return window.__usersWatch.ready;
+  let res, first = true;
+  const ready = new Promise(r => res = r);
+  const w = { ready, unsub:[] };
+  window.__usersWatch = w;
+  w.unsub.push(db.collection("users").onSnapshot(snap => {
+    window.__users = mapUserDocs(snap.docs);
+    try { sessionStorage.setItem("alexa_users_v1", JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){}
+    if (first){ first = false; res(); } else window.dispatchEvent(new Event(USERS_CHANGED_EVT));
+  }, ex => { console.warn("usersWatch:", ex); if (first){ first = false; res(); } }));
+  if (withSecrets){
+    let f2 = true;
+    w.sready = new Promise(r2 => {
+      w.unsub.push(db.collection("userSecrets").onSnapshot(snap => {
+        const m = {}; snap.forEach(d => { const x = d.data(); if (x.tempPassword) m[d.id] = x.tempPassword; });
+        window.__tmpPass = m;
+        if (f2){ f2 = false; r2(); } else window.dispatchEvent(new Event(USERS_CHANGED_EVT));
+      }, ex => { console.warn("secretsWatch:", ex); window.__tmpPass = {}; if (f2){ f2 = false; r2(); } }));
+    });
+  }
+  return ready;
+}
+function stopUsersWatch(){ const w = window.__usersWatch; if (w){ w.unsub.forEach(u=>{ try{u();}catch(_){} }); } window.__usersWatch = null; window.__users = []; window.__tmpPass = null; }
 async function updateUserRole(email,newRole,actorUid){
   await db.collection("users").doc(email).update({ role:newRole, promotedBy:actorUid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 }
@@ -811,6 +841,7 @@ async function createNewUser(email,password,role,actorUid,name){
     status:"active", promotedBy:actorUid,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
+  try { await db.collection("userSecrets").doc(email).set({ tempPassword:password, createdAt:firebase.firestore.FieldValue.serverTimestamp(), createdBy:actorUid||null }); } catch(ex){ console.warn("tempPass:", ex); }
   await secAuth.signOut();
   return cred.user.uid;
 }
@@ -818,6 +849,23 @@ async function createNewUser(email,password,role,actorUid,name){
 async function deleteUserDoc(email){ await db.collection("users").doc(email).update({ status:"deleted", deletedAt:firebase.firestore.FieldValue.serverTimestamp(), deletedBy:(activeUser&&activeUser.email)||null }); }
 async function restoreUserDoc(email){ await db.collection("users").doc(email).update({ status:"active" }); }
 // Повне очищення історії дзвінків менеджера виконує сервер (команда в commands/)
+// Тимчасові паролі (видно лише адміну+): кеш у сесії, оновлюється після дій
+window.__tmpPass = null;
+async function loadTempPasswords(force){
+  if (window.__usersWatch && window.__usersWatch.sready){ await window.__usersWatch.sready; return window.__tmpPass || {}; }
+  const K="alexa_tmp_v1";
+  try { if (!force){ const o=JSON.parse(sessionStorage.getItem(K)||"null"); if (o && Date.now()-o.t<3600000){ window.__tmpPass=o.m; return o.m; } } } catch(_){}
+  const m={};
+  try { const qs=await db.collection("userSecrets").get(); qs.forEach(d=>{ const x=d.data(); if (x.tempPassword) m[d.id]=x.tempPassword; }); }
+  catch(ex){ console.warn("tmpPass:", ex); }
+  window.__tmpPass=m; try { sessionStorage.setItem(K, JSON.stringify({t:Date.now(), m})); } catch(_){}
+  return m;
+}
+async function dropTempPassword(email){ try { await db.collection("userSecrets").doc(String(email).toLowerCase()).delete(); } catch(_){} try { sessionStorage.removeItem("alexa_tmp_v1"); } catch(_){} }
+// Повне видалення: сервер стирає акаунт входу (Firebase Auth), документ users і тимчасовий пароль
+async function requestDeleteUserFull(email){
+  await db.collection("commands").add({ type:"delete_user_full", email:email, status:"pending", requestedBy:(activeUser&&activeUser.email)||null, ts:firebase.firestore.FieldValue.serverTimestamp() });
+}
 async function requestPurgeManager(email){
   await db.collection("commands").add({ type:"purge_manager", email:email, status:"pending", requestedBy:(activeUser&&activeUser.email)||null, ts:firebase.firestore.FieldValue.serverTimestamp() });
 }
@@ -828,11 +876,12 @@ const MOCK_MANAGERS = [];
 window.__users = [];
 // Список користувачів: у сесійному кеші до 10 хв (зміни ролей/імен видно після дій на сторінці «Користувачі» — вона просить force).
 async function refreshUserCache(force){
+  if (window.__usersWatch){ await window.__usersWatch.ready; return; }   // живий список — читати заново не треба
   const K = "alexa_users_v1";
   try {
     if (!force){
       const raw = sessionStorage.getItem(K);
-      if (raw){ const o = JSON.parse(raw); if (o && Date.now()-o.t < 600000 && Array.isArray(o.u) && o.u.length){ window.__users = o.u; return; } }
+      if (raw){ const o = JSON.parse(raw); if (o && Date.now()-o.t < 3600000 && Array.isArray(o.u) && o.u.length){ window.__users = o.u; return; } }
     }
   } catch(_){}
   try { window.__users = await listUsers(); try { sessionStorage.setItem(K, JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){} }
@@ -1327,6 +1376,7 @@ function openChangePasswordModal(user){
       await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, curI.value));
       await u.updatePassword(newI.value);
       logAction("change_password", null, null);
+      dropTempPassword(u.email);
       toast("Пароль змінено","ok"); bg.remove();
     } catch(ex){
       const c = ex.code||"";
@@ -2375,7 +2425,7 @@ function openChangeRoleModal(actor, user, afterSave){
 async function renderUsers(root){
   root.replaceChildren(el("h1",{class:"page-title"},"Користувачі"), el("div",{class:"card loading"},"Завантаження…"));
   let actor, users;
-  try { actor = await getCurrentUser(); users = await listUsers(); }
+  try { actor = (typeof activeUser!=="undefined" && activeUser && activeUser.uid===(auth.currentUser&&auth.currentUser.uid)) ? activeUser : await getCurrentUser(); await refreshUserCache(); users = usersAll().slice(); if (actor && (actor.role===ROLES.ADMIN||actor.role===ROLES.MAIN_ADMIN||actor.role===ROLES.DEVELOPER)) await loadTempPasswords(); }
   catch (ex){
     root.replaceChildren(
       el("h1",{class:"page-title"},"Користувачі"),
@@ -2385,7 +2435,10 @@ async function renderUsers(root){
         el("div",{style:"margin-top:8px;font-size:13px;"},"Опублікуй Firestore Rules.")));
     return;
   }
-  const refresh = async () => { await refreshUserCache(true); renderUsers(root); };
+  if (window.__usersEvt) window.removeEventListener(USERS_CHANGED_EVT, window.__usersEvt);
+  window.__usersEvt = () => { if (!root.isConnected){ window.removeEventListener(USERS_CHANGED_EVT, window.__usersEvt); return; } if (document.querySelector(".modal-bg")) return; renderUsers(root); };
+  window.addEventListener(USERS_CHANGED_EVT, window.__usersEvt);
+  const refresh = async () => { if (window.__usersWatch){ renderUsers(root); return; } await refreshUserCache(true); try { sessionStorage.removeItem("alexa_tmp_v1"); } catch(_){} renderUsers(root); };
   const sorted = users.slice().sort((a,b) => (ROLE_RANK[b.role]||0) - (ROLE_RANK[a.role]||0));
   const canCreate = assignableRolesFor(actor).length>0;
 
@@ -2449,7 +2502,12 @@ async function renderUsers(root){
         userAva(u),
         el("div",{},
           el("div",{style:"font-weight:500;"}, u.name || u.email.split("@")[0]),
-          el("div",{class:"muted xs"}, u.email)))),
+          el("div",{class:"muted xs"}, u.email),
+          (window.__tmpPass && window.__tmpPass[String(u.email).toLowerCase()]) ? el("div",{class:"xs",style:"margin-top:3px;"},
+            el("span",{class:"chip",style:"background:var(--warn-soft,#fff3cd);color:#8a6d00;"},"Тимчасовий пароль: ",
+              el("b",{style:"user-select:all;"}, window.__tmpPass[String(u.email).toLowerCase()])),
+            el("button",{class:"btn btn-ghost btn-sm",title:"Сховати (менеджер уже змінив пароль)",style:"padding:0 6px;margin-left:4px;",
+              onclick: async ()=>{ await dropTempPassword(u.email); refresh(); }},"✕")) : null))),
       el("td",{}, el("span",{class:"chip "+(ROLE_CHIP_CLASS[u.role]||"")}, ROLE_LABEL_UK[u.role]||u.role)),
       el("td",{style:"text-align:right;"}, actions)
     );
@@ -2470,11 +2528,11 @@ async function renderUsers(root){
           el("div",{style:"flex:1;min-width:160px;"}, el("div",{style:"font-weight:500;"}, u.name), el("div",{class:"muted xs"}, u.email+" · "+(ROLE_LABEL_UK[u.role]||u.role)+(u.role===ROLES.MANAGER ? " · розмов: "+n : ""))),
           canActOn(actor,u) ? el("button",{class:"btn btn-ghost btn-sm", onclick: async ()=>{ try { await restoreUserDoc(u.email); logAction("restore_user", null, u.email); refresh(); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Відновити") : null,
           (canActOn(actor,u) && u.role===ROLES.MANAGER) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick:()=>openPurgeModal(u, n, refresh)}, "Очистити історію") : null,
-          (canActOn(actor,u) && n===0) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick: async ()=>{
+          canActOn(actor,u) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick: async ()=>{
             const ok = await confirmModal("Прибрати «"+u.name.replace(" (видалений)","")+"» повністю?",
-              "Менеджер зникне зі списків і з системи."+(n ? " Його розмови ("+n+" шт.) ЛИШАТЬСЯ, але без імені — лише з поштою. Якщо вони не потрібні, спочатку натисни «Очистити історію»." : ""), "Так, прибрати повністю");
+              "Акаунт входу й запис менеджера буде видалено назавжди — той самий email можна буде створити заново."+(n ? " Його розмови ("+n+" шт.) ЛИШАТЬСЯ, але без імені — лише з поштою. Якщо вони не потрібні, спочатку натисни «Очистити історію»." : ""), "Так, прибрати повністю");
             if (!ok) return;
-            try { await db.collection("users").doc(u.email).delete(); logAction("remove_user_fully", null, u.email); refresh(); }
+            try { await requestDeleteUserFull(u.email); logAction("remove_user_fully", null, u.email); toast("Команду передано серверу — акаунт зникне за кілька секунд","ok"); setTimeout(refresh, 6000); }
             catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Прибрати повністю") : null);
       })) : document.createDocumentFragment()
   );
@@ -3671,8 +3729,8 @@ auth.onAuthStateChanged(async (u)=>{
   document.querySelectorAll("nav.navbar").forEach(n=>n.remove());
   const fresh=document.createElement("div"); fresh.id="app";
   const old=document.getElementById("app"); if (old) old.replaceWith(fresh); else document.body.appendChild(fresh);
-  if (!u){ activeUser=null; stopCallsSubscription(); stopScriptsSubscription(); renderLogin(fresh); return; }
-  try { activeUser = await getCurrentUser(); await refreshUserCache(); startCallsSubscription(activeUser);
+  if (!u){ activeUser=null; stopCallsSubscription(); stopScriptsSubscription(); stopUsersWatch(); renderLogin(fresh); return; }
+  try { activeUser = await getCurrentUser(); if (activeUser){ startUsersWatch(activeUser.role===ROLES.ADMIN||activeUser.role===ROLES.MAIN_ADMIN||activeUser.role===ROLES.DEVELOPER); } await refreshUserCache(); startCallsSubscription(activeUser);
     // «Зайшов» пишемо лише коли людина справді ввела пароль на формі входу (а не при кожному відкритті сайту з уже збереженим входом)
     if (activeUser){ try { if (sessionStorage.getItem("alexa_real_login")==="1"){ sessionStorage.removeItem("alexa_real_login"); logAction("login"); } } catch(_){} } }
   catch(ex){

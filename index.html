@@ -826,8 +826,16 @@ async function requestPurgeManager(email){
 const MOCK_MANAGERS = [];
 // Live cache of users (populated from Firestore on login and after user changes)
 window.__users = [];
-async function refreshUserCache(){
-  try { window.__users = await listUsers(); }
+// Список користувачів: у сесійному кеші до 10 хв (зміни ролей/імен видно після дій на сторінці «Користувачі» — вона просить force).
+async function refreshUserCache(force){
+  const K = "alexa_users_v1";
+  try {
+    if (!force){
+      const raw = sessionStorage.getItem(K);
+      if (raw){ const o = JSON.parse(raw); if (o && Date.now()-o.t < 600000 && Array.isArray(o.u) && o.u.length){ window.__users = o.u; return; } }
+    }
+  } catch(_){}
+  try { window.__users = await listUsers(); try { sessionStorage.setItem(K, JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){} }
   catch(ex){ console.warn("userCache:", ex); window.__users = []; }
 }
 function usersAll(){ return window.__users || []; }
@@ -868,6 +876,48 @@ function stopCallsSubscription(){
   if (window.__callsSub){ try { window.__callsSub(); } catch(_){} window.__callsSub = null; }
 }
 function callsAll(){ return window.__calls || []; }
+// Локальне сховище браузера (IndexedDB): великі «незмінні» дані (розшифровка й аналіз завершених розмов) читаються з бази ОДИН раз
+// і далі беруться з пристрою, поки розмова не змінилась (підпис = статус+updatedAt+оцінка). Нове чи змінене — читається заново.
+const idbKV = (function(){
+  let p = null;
+  function open(){
+    if (p) return p;
+    p = new Promise((res,rej)=>{
+      try {
+        const r = indexedDB.open("alexa-cache", 1);
+        r.onupgradeneeded = ()=>{ r.result.createObjectStore("kv"); };
+        r.onsuccess = ()=>res(r.result);
+        r.onerror = ()=>rej(r.error);
+      } catch(e){ rej(e); }
+    });
+    return p;
+  }
+  return {
+    async get(k){ try { const d = await open(); return await new Promise(res=>{ const q = d.transaction("kv").objectStore("kv").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>res(undefined); }); } catch(_){ return undefined; } },
+    async set(k,v){ try { const d = await open(); await new Promise(res=>{ const tx = d.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>res(); tx.onabort=()=>res(); }); } catch(_){} },
+    async prune(max){   // лишаємо не більше max найсвіжіших записів
+      try {
+        const d = await open();
+        const rows = await new Promise(res=>{ const out=[]; const q = d.transaction("kv").objectStore("kv").openCursor(); q.onsuccess=()=>{ const c=q.result; if (c){ out.push({k:c.key, at:(c.value&&c.value.at)||0}); c.continue(); } else res(out); }; q.onerror=()=>res([]); });
+        if (rows.length <= max) return;
+        rows.sort((a,b)=>a.at-b.at);
+        const del = rows.slice(0, rows.length-max);
+        await new Promise(res=>{ const tx = d.transaction("kv","readwrite"); const s = tx.objectStore("kv"); del.forEach(r=>s.delete(r.k)); tx.oncomplete=()=>res(); tx.onerror=()=>res(); tx.onabort=()=>res(); });
+      } catch(_){}
+    },
+  };
+})();
+function tsKey(v){ try { return v && v.toMillis ? v.toMillis() : String(v); } catch(_){ return ""; } }
+// Читає через локальний кеш: fetcher() викликається лише якщо запису нема або підпис змінився.
+async function cachedRead(key, sig, fetcher){
+  if (sig){
+    const hit = await idbKV.get(key);
+    if (hit && hit.sig === sig && hit.data !== undefined) return hit.data;
+  }
+  const data = await fetcher();
+  if (sig && data !== undefined && data !== null){ await idbKV.set(key, { sig, data, at: Date.now() }); idbKV.prune(80); }
+  return data;
+}
 // Підпис видимих полів усіх розмов: сторінки перемальовуються лише коли він змінився
 // (а не від кожного службового оновлення — прогрес, heartbeat, updatedAt тощо), інакше екран «моргає».
 function callsSig(){
@@ -1112,10 +1162,7 @@ async function openYouTubeCallsModal(email, name){
   document.body.appendChild(bg);
 
   try {
-    const snap = await db.collection("calls")
-      .where("managerEmail","==",email)
-      .get();
-    const calls = snap.docs.map(d => Object.assign({id:d.id}, d.data()))
+    const calls = callsAll().filter(c => c.managerEmail===email).map(c => Object.assign({}, c))
       .sort((a,b) => String(b.startedAt||"").localeCompare(String(a.startedAt||"")));
     if (!calls.length){
       listBox.replaceChildren(el("div",{class:"muted",style:"text-align:center;padding:30px;"},
@@ -1380,6 +1427,10 @@ async function loadAnalyses(calls){
     const sig = String(c.score)+"|"+String(c.updatedAt);
     const hit = __anCache.get(c.id); if (hit && hit.sig===sig) return;
     let a=null;
+    if (c.digest && typeof c.digest === "object"){       // зріз аналізу вже в документі розмови — 0 додаткових читань
+      __anCache.set(c.id,{sig,a:{ weaknesses:(c.digest.w||[]), criteria:(c.digest.c||[]) }});
+      return;
+    }
     try { const sn = await db.collection("calls").doc(c.id).collection("analysis").doc("main").get(); if (sn.exists) a = sn.data(); } catch(_){}
     __anCache.set(c.id,{sig,a});
   }));
@@ -2321,7 +2372,7 @@ async function renderUsers(root){
         el("div",{style:"margin-top:8px;font-size:13px;"},"Опублікуй Firestore Rules.")));
     return;
   }
-  const refresh = async () => { await refreshUserCache(); renderUsers(root); };
+  const refresh = async () => { await refreshUserCache(true); renderUsers(root); };
   const sorted = users.slice().sort((a,b) => (ROLE_RANK[b.role]||0) - (ROLE_RANK[a.role]||0));
   const canCreate = assignableRolesFor(actor).length>0;
 
@@ -2738,19 +2789,27 @@ function renderCallDetail(root, callId){
     });
     return out;
   }
+  const _cr = callsAll().find(c => c.id===callId);
+  const _csig = (_cr && _cr.status==="done") ? ["v1", _cr.status, tsKey(_cr.updatedAt), _cr.score, _cr.durationSec].join("|") : null;   // кешуємо лише завершені розмови
+  const _ckey = ((activeUser&&activeUser.email)||"")+"|"+callId;
   async function loadRealTranscript(){
     try {
-      const snap = await db.collection("calls").doc(callId).collection("chunks").orderBy("n").get();
-      const lines = [];
-      snap.docs.forEach(x => { lines.push(...parseChunkText(x.data().text||"")); });
-      if (lines.length){ d.transcript = lines; }
+      const lines = await cachedRead(_ckey+"|tx", _csig, async ()=>{
+        const snap = await db.collection("calls").doc(callId).collection("chunks").orderBy("n").get();
+        const out = [];
+        snap.docs.forEach(x => { out.push(...parseChunkText(x.data().text||"")); });
+        return out;
+      });
+      if (lines && lines.length){ d.transcript = lines; }
     } catch(ex){ console.warn("chunks load:", ex); }
   }
   async function loadRealAnalysis(){
     try {
-      const snap = await db.collection("calls").doc(callId).collection("analysis").doc("main").get();
-      if (!snap.exists) return;
-      const a = snap.data() || {};
+      const a = await cachedRead(_ckey+"|an", _csig, async ()=>{
+        const snap = await db.collection("calls").doc(callId).collection("analysis").doc("main").get();
+        return snap.exists ? JSON.parse(JSON.stringify(snap.data() || {})) : null;
+      });
+      if (!a) return;
       if (a.summary)    { d.summary = a.summary; d.sections = [{ title:"Підсумок", text:a.summary }]; }
       if (a.agreements) d.agreements = a.agreements.map(x => x.text || x);
       if (a.nextSteps)  d.nextSteps  = a.nextSteps.map(x => x.text || x);
@@ -3592,7 +3651,7 @@ window.addEventListener(CALLS_CHANGED_EVT, ()=>{
   }
 });
 window.__refreshAfterProfile = async () => {
-  try { activeUser = await getCurrentUser(); render(); } catch(ex){ console.error(ex); }
+  try { activeUser = await getCurrentUser(); await refreshUserCache(true); render(); } catch(ex){ console.error(ex); }
 };
 auth.onAuthStateChanged(async (u)=>{
   document.querySelectorAll("nav.navbar").forEach(n=>n.remove());

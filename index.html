@@ -575,6 +575,15 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   .period-seg{display:flex;width:100%}
   .period-seg button{flex:1 1 0;min-width:0;padding:8px 4px;text-align:center;white-space:nowrap}
 }
+
+@media (max-width:700px){
+  /* календар: панель над нижнім меню, щоб «Очистити / Готово» не ховались */
+  .dd .cal{position:fixed !important;left:10px !important;right:10px !important;top:auto !important;bottom:84px !important;width:auto !important;max-height:calc(100dvh - 150px);overflow-y:auto;z-index:350 !important}
+  .cal__day{padding:10px 0}
+  .cal__footer{position:sticky;bottom:0;background:var(--surface);padding-bottom:4px}
+  .cal__footer button{padding:8px 12px}
+  .cal__quick button{padding:6px 10px}
+}
 </style>
 </head>
 <body>
@@ -777,7 +786,10 @@ function userAva(u, size){
 
 /* ---------- Floating util: close on outside click ---------- */
 function closeOnOutside(popNode, triggerNode, onClose){
-  const h=(ev)=>{ if (!popNode.contains(ev.target) && ev.target!==triggerNode && !triggerNode.contains(ev.target)){ onClose(); document.removeEventListener("mousedown", h, true); } };
+  const h=(ev)=>{
+    // календар уже закрито іншим шляхом («Готово» тощо) — знімаємо себе й нічого не чіпаємо, інакше закриємо наступний, новий календар
+    if (!popNode.isConnected){ document.removeEventListener("mousedown", h, true); return; }
+    if (!popNode.contains(ev.target) && ev.target!==triggerNode && !triggerNode.contains(ev.target)){ onClose(); document.removeEventListener("mousedown", h, true); } };
   setTimeout(()=>document.addEventListener("mousedown", h, true), 0);
 }
 
@@ -849,6 +861,7 @@ function dateRangeBtn({ start, end, onChange, defaultRange }){
     btn.classList.add("is-open");
     closeOnOutside(pop, btn, ()=>{ if (pop){ pop.remove(); pop=null; btn.classList.remove("is-open"); } });
 
+    function mclose(){ try { if (window.matchMedia("(max-width:700px)").matches && pop){ pop.remove(); pop=null; btn.classList.remove("is-open"); } } catch(_){} }
     function buildCalendar(){
       const node = el("div",{class:"cal", style:"position:absolute;top:calc(100% + 6px);left:0;z-index:50;"});
       renderCal(node);
@@ -904,14 +917,14 @@ function dateRangeBtn({ start, end, onChange, defaultRange }){
           el("button",{onclick:()=>{ viewDate.setMonth(viewDate.getMonth()+1); renderCal(node); }}, ICONS.chevronRight())));
 
       const quick = el("div",{class:"cal__quick"},
-        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t); en=new Date(t); viewDate=new Date(t); viewDate.setDate(1); renderCal(node); onChange({start:s,end:en}); paint(); }},"Сьогодні"),
-        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t); s.setDate(t.getDate()-6); en=new Date(t); viewDate=new Date(s); viewDate.setDate(1); renderCal(node); onChange({start:s,end:en}); paint(); }},"7 днів"),
-        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t); s.setDate(t.getDate()-29); en=new Date(t); viewDate=new Date(s); viewDate.setDate(1); renderCal(node); onChange({start:s,end:en}); paint(); }},"30 днів"),
-        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t.getFullYear(),t.getMonth(),1); en=new Date(t); viewDate=new Date(s); renderCal(node); onChange({start:s,end:en}); paint(); }},"Цей місяць"),
-        el("button",{onclick:()=>{ s=null; en=null; renderCal(node); onChange({start:null,end:null}); paint(); }},"Весь час"));
+        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t); en=new Date(t); viewDate=new Date(t); viewDate.setDate(1); renderCal(node); onChange({start:s,end:en}); paint(); mclose(); }},"Сьогодні"),
+        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t); s.setDate(t.getDate()-6); en=new Date(t); viewDate=new Date(s); viewDate.setDate(1); renderCal(node); onChange({start:s,end:en}); paint(); mclose(); }},"7 днів"),
+        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t); s.setDate(t.getDate()-29); en=new Date(t); viewDate=new Date(s); viewDate.setDate(1); renderCal(node); onChange({start:s,end:en}); paint(); mclose(); }},"30 днів"),
+        el("button",{onclick:()=>{ const t=new Date(); s=new Date(t.getFullYear(),t.getMonth(),1); en=new Date(t); viewDate=new Date(s); renderCal(node); onChange({start:s,end:en}); paint(); mclose(); }},"Цей місяць"),
+        el("button",{onclick:()=>{ s=null; en=null; renderCal(node); onChange({start:null,end:null}); paint(); mclose(); }},"Весь час"));
 
       const footer = el("div",{class:"cal__footer"},
-        el("button",{onclick:()=>{ const dr = defaultRange ? defaultRange() : {start:null,end:null}; s=dr.start; en=dr.end; renderCal(node); onChange({start:s,end:en}); paint(); }},"Очистити"),
+        el("button",{onclick:()=>{ const dr = defaultRange ? defaultRange() : {start:null,end:null}; s=dr.start; en=dr.end; renderCal(node); onChange({start:s,end:en}); paint(); mclose(); }},"Очистити"),
         el("button",{onclick:()=>{
           // Якщо вибрали лише одну дату — вважаємо її і початком, і кінцем.
           if (s && !en) en = new Date(s);

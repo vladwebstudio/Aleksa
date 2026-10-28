@@ -444,6 +444,8 @@ const FIREBASE_CONFIG = {
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db   = firebase.firestore();
+// Локальний кеш: повторне відкриття сайту не перечитує розмови заново, а лише дізнається про зміни (економія квоти читань).
+try { db.enablePersistence({ synchronizeTabs:true }).catch(()=>{}); } catch(_){}
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 
 // YouTube OAuth (web client из GCP). client_id публичный, secret в site НЕ попадает — он у сервера.
@@ -464,17 +466,20 @@ const MENU_BY_ROLE = {
   main_admin:["overview","calls","progress","scripts","users","settings"],
   developer:["overview","calls","progress","scripts","users","settings"],
 };
+// Розробник — усіх. Головний адмін — головних адмінів, адмінів, менеджерів (не розробника).
+// Адмін — адмінів і менеджерів (не головного адміна й не розробника). Менеджер — нікого.
 function canActOn(a,t){
   if (!a||!t) return false;
   if (a.role===ROLES.DEVELOPER) return true;
-  if (a.role===ROLES.MAIN_ADMIN) return t.role!==ROLES.DEVELOPER;
-  if (a.role===ROLES.ADMIN)      return t.role===ROLES.MANAGER;
+  if (t.role===ROLES.DEVELOPER) return false;
+  if (a.role===ROLES.MAIN_ADMIN) return true;
+  if (a.role===ROLES.ADMIN)      return t.role===ROLES.ADMIN || t.role===ROLES.MANAGER;
   return false;
 }
 function assignableRolesFor(actor){
   if (!actor) return [];
   if (actor.role===ROLES.DEVELOPER)  return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.MANAGER];
-  if (actor.role===ROLES.MAIN_ADMIN) return [ROLES.ADMIN, ROLES.MANAGER];
+  if (actor.role===ROLES.MAIN_ADMIN) return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.MANAGER];
   if (actor.role===ROLES.ADMIN)      return [ROLES.ADMIN, ROLES.MANAGER];
   return [];
 }
@@ -898,6 +903,7 @@ const STATUS_CLS = { live:"chip--live", queued:"", downloading:"chip--trans", tr
 function logAction(action, call, details){
   try {
     if (!activeUser || activeUser.role===ROLES.DEVELOPER) return;   // дії розробника не логуємо
+    window.__auditCache = null;
     db.collection("audit").add({
       ts: firebase.firestore.FieldValue.serverTimestamp(),
       actorEmail: activeUser.email||"", actorName: activeUser.name||"", actorRole: activeUser.role||"",
@@ -1207,6 +1213,11 @@ function youTubeConnectContent(user){
     } else if (code && code.status === "pending"){
       statusBox.replaceChildren(
         el("span",{style:"color:var(--warn);font-weight:600;"},"⏳ Підключаємо канал, це займе хвилину"));
+    } else if (code && code.status === "error"){
+      statusBox.replaceChildren(
+        el("span",{style:"color:var(--danger);font-weight:600;"},"⚠ Підключення не завершилось. "),
+        el("span",{}, "Найчастіша причина: сервер був вимкнений, поки ти підключала канал. Спробуй ще раз трохи пізніше — коли сервер працює."));
+      btn.textContent = "Спробувати ще раз"; btn.classList.add("has-warn");
     } else {
       statusBox.textContent = "Канал не підключений"; btn.classList.add("has-warn");
     }
@@ -1901,10 +1912,37 @@ function scriptDefault(pkgKey, fmt){
 }
 const scriptsState = { selected: "quick_start" };
 
+// Усі скрипти тримаємо в пам'яті через одну підписку (onSnapshot): сторінка «Скрипти» більше не читає базу при кожному вході,
+// а нові зміни (свої й чужі) приходять самі. Підписка стартує при першому відкритті сторінки.
+const scriptsStore = { map:null, unsub:null, waiters:[] };
+function startScriptsSubscription(){
+  if (scriptsStore.unsub) return;
+  try {
+    scriptsStore.unsub = db.collection("scripts").onSnapshot(sn=>{
+      const m = {}; sn.forEach(d=>{ m[d.id] = d.data()||{}; });
+      scriptsStore.map = m;
+      const w = scriptsStore.waiters.splice(0); w.forEach(f=>f(m));
+    }, err=>{
+      console.warn("scripts subscribe:", err);
+      try { scriptsStore.unsub && scriptsStore.unsub(); } catch(_){}
+      scriptsStore.unsub = null;
+      const w = scriptsStore.waiters.splice(0); w.forEach(f=>f(scriptsStore.map || {}));
+    });
+  } catch(ex){ console.warn(ex); }
+}
+function scriptsPatchLocal(id, obj){ if (scriptsStore.map) scriptsStore.map[id] = Object.assign({}, scriptsStore.map[id]||{}, obj); }
+function stopScriptsSubscription(){ try { scriptsStore.unsub && scriptsStore.unsub(); } catch(_){} scriptsStore.unsub=null; scriptsStore.map=null; }
+function scriptsAll(){
+  if (scriptsStore.map) return Promise.resolve(scriptsStore.map);
+  return new Promise(res=>{
+    scriptsStore.waiters.push(res);
+    startScriptsSubscription();
+    setTimeout(()=>{ const i = scriptsStore.waiters.indexOf(res); if (i>=0){ scriptsStore.waiters.splice(i,1); res(scriptsStore.map||{}); } }, 8000);
+  });
+}
 async function loadScript(packageKey){
-  const snap = await db.collection("scripts").doc(packageKey).get();
-  if (!snap.exists) return null;
-  return snap.data();
+  const m = await scriptsAll();
+  return m[packageKey] ? JSON.parse(JSON.stringify(m[packageKey])) : null;
 }
 async function saveScript(packageKey, pkgName, data, actorUid){
   const payload = {
@@ -1924,6 +1962,7 @@ async function saveScript(packageKey, pkgName, data, actorUid){
   };
   try {
     await db.collection("scripts").doc(packageKey).set(payload);
+    scriptsPatchLocal(packageKey, payload);
   } catch (ex) {
     console.error("saveScript set failed:", ex, "payload:", payload);
     throw ex;
@@ -1970,13 +2009,13 @@ async function renderScripts(root){
   // додаткові продукти, які додав адмін (scripts/{key}.custom = true)
   const customPkgs = [];
   try {
-    const cs = await db.collection("scripts").where("custom","==",true).get();
-    cs.forEach(d => { const x = d.data()||{}; if (!x.archived) customPkgs.push({ key:d.id, name:x.name||d.id, short:x.short||"Додатковий продукт", fmt:"sales", custom:true, productHint:x.productHint||"" }); });
+    const allScripts = await scriptsAll();
+    Object.keys(allScripts).forEach(id => { const x = allScripts[id]||{}; if (x.custom===true && !x.archived) customPkgs.push({ key:id, name:x.name||id, short:x.short||"Додатковий продукт", fmt:"sales", custom:true, productHint:x.productHint||"" }); });
   } catch(ex){ console.warn("custom scripts:", ex); }
   const hiddenKeys = {};
   try {
-    const hs = await db.collection("scripts").where("archived","==",true).get();
-    hs.forEach(d => { hiddenKeys[d.id] = (d.data()||{}).name || d.id; });
+    const allS = await scriptsAll();
+    Object.keys(allS).forEach(id => { if ((allS[id]||{}).archived === true) hiddenKeys[id] = allS[id].name || id; });
   } catch(ex){ console.warn("hidden scripts:", ex); }
   const PKGS = SCRIPT_PACKAGES.filter(p => !hiddenKeys[p.key]).concat(customPkgs);
   if (!PKGS.length) PKGS.push(SCRIPT_PACKAGES[0]);
@@ -2108,7 +2147,7 @@ async function renderScripts(root){
         el("button",{class:"btn btn-danger-outline", onclick: async ()=>{
           const ok = await confirmModal("Прибрати продукт «"+pkg.name+"»?","Продукт зникне зі списку, ІІ більше не розпізнаватиме його. Вже зроблені аналізи не змінюються. Повернути можна внизу списку («Приховані»).","Так, прибрати");
           if (!ok) return;
-          try { await db.collection("scripts").doc(docKey).set({ archived:true, name:pkg.name }, {merge:true}); logAction("remove_product", null, pkg.name); scriptsState.selected=""; renderScripts(root); }
+          try { await db.collection("scripts").doc(docKey).set({ archived:true, name:pkg.name }, {merge:true}); scriptsPatchLocal(docKey,{archived:true,name:pkg.name}); logAction("remove_product", null, pkg.name); scriptsState.selected=""; renderScripts(root); }
           catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Прибрати продукт"),
         saveBtn) : el("div",{class:"muted small",style:"text-align:right;"},"Тільки для перегляду")
     );
@@ -2118,12 +2157,7 @@ async function renderScripts(root){
 
   // Load existence state for sidebar labels
   const exists = {};
-  for (const pk of PKGS){
-    try {
-      const sn = await db.collection("scripts").doc(scriptDocKey(pk.key)).get();
-      exists[pk.key] = sn.exists;
-    } catch(_){ exists[pk.key] = false; }
-  }
+  { const allS = await scriptsAll(); for (const pk of PKGS){ exists[pk.key] = !!allS[scriptDocKey(pk.key)]; } }
 
   const sideList = el("div",{class:"card",style:"padding:0;overflow:hidden;"});
   PKGS.forEach((pk, idx) => {
@@ -2144,7 +2178,7 @@ async function renderScripts(root){
   if (canEdit && hiddenIds.length) sideList.appendChild(el("div",{style:"padding:10px 16px;border-top:1px solid var(--border);font-size:12px;"},
     el("div",{class:"muted xs",style:"margin-bottom:4px;"},"Приховані:"),
     ...hiddenIds.map(k => el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0;"}, el("span",{}, hiddenKeys[k]),
-      el("a",{href:"javascript:void 0",style:"color:var(--brand);",onclick: async ()=>{ try { await db.collection("scripts").doc(k).set({archived:false},{merge:true}); logAction("restore_product",null,hiddenKeys[k]); renderScripts(root); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }},"повернути")))));
+      el("a",{href:"javascript:void 0",style:"color:var(--brand);",onclick: async ()=>{ try { await db.collection("scripts").doc(k).set({archived:false},{merge:true}); scriptsPatchLocal(k,{archived:false}); logAction("restore_product",null,hiddenKeys[k]); renderScripts(root); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }},"повернути")))));
   if (canEdit) sideList.appendChild(el("div",{
     style:"display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;color:var(--brand);font-weight:600;",
     onclick: ()=>openAddProductModal(root)}, el("span",{style:"font-size:22px;line-height:1;width:36px;text-align:center;"},"+"), "Додати продукт"));
@@ -2300,9 +2334,9 @@ async function renderUsers(root){
   const filtered = sorted.filter(u => !u.deleted && (!q || (u.email+" "+(u.name||"")).toLowerCase().includes(q)));
   const deletedList = sorted.filter(u => u.deleted).sort((a,b)=>(b.deletedAtMs||0)-(a.deletedAtMs||0));   // нові видалені — зверху
 
-const rows = filtered.map(u => {
-    const canAct = canActOn(actor, u) && u.email!==actor.email;
-    const canEditProfile = canActOn(actor, u);
+  const rows = filtered.map(u => {
+    const canAct = canActOn(actor, u) && u.uid!==actor.uid;
+    const canEditProfile = u.uid===actor.uid || canActOn(actor, u);   // чужі профілі — лише тих, на кого є право
     const actions = el("div",{style:"display:flex;gap:6px;justify-content:flex-end;align-items:center;"});
     if (canEditProfile){
       actions.append(el("button",{class:"btn btn-ghost btn-sm",title:"Редагувати імʼя / фото",
@@ -2607,7 +2641,9 @@ function renderSettings(root){
     }
   }
   histSel.addEventListener("change", ()=>{ histAll = false; paintHist(); });
-  db.collection("audit").orderBy("ts","desc").limit(150).get().then(sn=>{ histRows = sn.docs.map(d=>d.data()); paintHist(); })
+  const _au = window.__auditCache;
+  (_au && Date.now()-_au.t < 120000 ? Promise.resolve(_au.rows) : db.collection("audit").orderBy("ts","desc").limit(60).get().then(sn=>{ const r = sn.docs.map(d=>d.data()); window.__auditCache = { t:Date.now(), rows:r }; return r; }))
+    .then(rows=>{ histRows = rows; paintHist(); })
     .catch(ex=>{ histList.replaceChildren(el("div",{class:"muted small"},"Не вдалося прочитати журнал: "+(ex.code||ex.message||ex))); });
   const historyCard = el("div",{class:"card",style:"grid-column:1/-1;"},
     el("div",{class:"section-title"}, el("span",{},"Історія дій"), histSel),
@@ -3562,7 +3598,7 @@ auth.onAuthStateChanged(async (u)=>{
   document.querySelectorAll("nav.navbar").forEach(n=>n.remove());
   const fresh=document.createElement("div"); fresh.id="app";
   const old=document.getElementById("app"); if (old) old.replaceWith(fresh); else document.body.appendChild(fresh);
-  if (!u){ activeUser=null; stopCallsSubscription(); renderLogin(fresh); return; }
+  if (!u){ activeUser=null; stopCallsSubscription(); stopScriptsSubscription(); renderLogin(fresh); return; }
   try { activeUser = await getCurrentUser(); await refreshUserCache(); startCallsSubscription(activeUser); }
   catch(ex){
     fresh.replaceChildren(el("div",{class:"card login-card",style:"margin:40px auto;background:var(--danger-soft);border-color:var(--danger);"},

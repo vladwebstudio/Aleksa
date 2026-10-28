@@ -471,16 +471,26 @@ const MENU_BY_ROLE = {
   main_admin:["overview","calls","progress","scripts","users","settings"],
   developer:["overview","calls","progress","scripts","users","settings"],
 };
-// Розробник — усіх. Головний адмін — головних адмінів, адмінів, менеджерів (не розробника).
-// Адмін — адмінів і менеджерів (не головного адміна й не розробника). Менеджер — нікого.
+// Розробник — усіх. Головний адмін — адмінів і менеджерів + тих головних адмінів, яких призначив сам. Адмін — менеджерів
+// + тих адмінів, яких призначив сам: хто призначив — той головніший (може забрати роль), у відповідь — ні. Менеджер — нікого.
+// Має збігатися з firestore.rules (canTouchT): promotedBy цілі == uid того, хто діє.
 function canActOn(a,t){
   if (!a||!t) return false;
   if (a.role===ROLES.DEVELOPER) return true;
   if (t.role===ROLES.DEVELOPER) return false;
-  if (a.role===ROLES.MAIN_ADMIN) return true;
-  if (a.role===ROLES.ADMIN)      return t.role===ROLES.ADMIN || t.role===ROLES.MANAGER;
-  return false;
+  const ra=ROLE_RANK[a.role]||0, rt=ROLE_RANK[t.role]||0;
+  if (ra < ROLE_RANK.admin) return false;
+  if (rt < ra) return true;
+  return rt===ra && !!t.promotedBy && t.promotedBy===a.uid;
 }
+// Місячний ліміт ІІ менеджера (воркер веде витрату; адмін+ міняє aiLimitUsd). Місяць — UTC, як у воркері.
+function aiQuota(u){
+  const mk = new Date().toISOString().slice(0,7);
+  const spent = (u && u.aiMonth===mk) ? Number(u.aiSpentUsd||0) : 0;
+  const limit = (u && u.aiLimitUsd!=null && !isNaN(Number(u.aiLimitUsd))) ? Number(u.aiLimitUsd) : 1;
+  return { spent, limit, over: spent>=limit };
+}
+function aiDeniedMsg(){ return (activeUser && activeUser.aiBlocked) ? "Доступ до ІІ закрито адміністратором" : "Місячний ліміт ІІ вичерпано — попроси адміна збільшити ліміт"; }
 function assignableRolesFor(actor){
   if (!actor) return [];
   if (actor.role===ROLES.DEVELOPER)  return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.MANAGER];
@@ -761,9 +771,10 @@ async function getCurrentUser(){
     try { await snap.ref.update({ uid: u.uid }); d.uid = u.uid; }
     catch(_){}
   }
-  if (d.status==="deleted"){ try { await auth.signOut(); } catch(_){} return null; }   // видалений менеджер не заходить
+  if (d.status==="deleted"){ logLoginFail(mail, "user-deleted"); try { await auth.signOut(); } catch(_){} return null; }   // видалений менеджер не заходить
   return { uid:u.uid, email:d.email||u.email, name:d.name||u.email.split("@")[0],
            role:d.role||ROLES.MANAGER, status:d.status||"active", aiBlocked:!!d.aiBlocked,
+           aiMonth:d.aiMonth||null, aiSpentUsd:d.aiSpentUsd||0, aiLimitUsd:(d.aiLimitUsd!=null?d.aiLimitUsd:null),
            promotedBy:d.promotedBy||null, photoURL:d.photoURL||null };
 }
 function mapUserDocs(docs){
@@ -772,12 +783,21 @@ function mapUserDocs(docs){
     const isDel = d.status==="deleted";
     return { uid:s.id, email:d.email||s.id, name:(d.name||s.id.split("@")[0]) + (isDel ? " (видалений)" : ""), deleted:isDel, deletedAtMs:(d.deletedAt&&d.deletedAt.toMillis)?d.deletedAt.toMillis():0,
              role:d.role||ROLES.MANAGER, status:d.status||"active", aiBlocked:!!d.aiBlocked,
+             aiMonth:d.aiMonth||null, aiSpentUsd:d.aiSpentUsd||0, aiLimitUsd:(d.aiLimitUsd!=null?d.aiLimitUsd:null),
              promotedBy:d.promotedBy||null, photoURL:d.photoURL||null };
   });
 }
 async function listUsers(){
   const qs=await db.collection("users").get();
   return mapUserDocs(qs.docs);
+}
+// Паролі-підказки: правила дозволяють лише запит з фільтром ролі (адмін — менеджери, головний адмін — менеджери й адміни, розробник — усі)
+function secretsQuery(){
+  const c = db.collection("userSecrets");
+  const r = activeUser && activeUser.role;
+  if (r===ROLES.DEVELOPER) return c;
+  if (r===ROLES.MAIN_ADMIN) return c.where("role","in",["manager","admin"]);
+  return c.where("role","==","manager");
 }
 // «Живий» список користувачів: одне читання при вході, далі Firestore надсилає лише змінені документи
 const USERS_CHANGED_EVT = "alexa-users-changed";
@@ -791,12 +811,16 @@ function startUsersWatch(withSecrets){
   w.unsub.push(db.collection("users").onSnapshot(snap => {
     window.__users = mapUserDocs(snap.docs);
     try { sessionStorage.setItem("alexa_users_v1", JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){}
+    try {   // свої витрати ІІ / ліміт підтягуються наживо (воркер дописує після кожного запиту)
+      const me = activeUser && window.__users.find(x => String(x.email).toLowerCase()===String(activeUser.email).toLowerCase());
+      if (me){ activeUser.aiMonth=me.aiMonth; activeUser.aiSpentUsd=me.aiSpentUsd; activeUser.aiLimitUsd=me.aiLimitUsd; activeUser.aiBlocked=me.aiBlocked; }
+    } catch(_){}
     if (first){ first = false; res(); } else window.dispatchEvent(new Event(USERS_CHANGED_EVT));
   }, ex => { console.warn("usersWatch:", ex); if (first){ first = false; res(); } }));
   if (withSecrets){
     let f2 = true;
     w.sready = new Promise(r2 => {
-      w.unsub.push(db.collection("userSecrets").onSnapshot(snap => {
+      w.unsub.push(secretsQuery().onSnapshot(snap => {
         const m = {}; snap.forEach(d => { const x = d.data(); if (x.tempPassword) m[d.id] = x.tempPassword; });
         window.__tmpPass = m;
         if (f2){ f2 = false; r2(); } else window.dispatchEvent(new Event(USERS_CHANGED_EVT));
@@ -808,6 +832,7 @@ function startUsersWatch(withSecrets){
 function stopUsersWatch(){ const w = window.__usersWatch; if (w){ w.unsub.forEach(u=>{ try{u();}catch(_){} }); } window.__usersWatch = null; window.__users = []; window.__tmpPass = null; }
 async function updateUserRole(email,newRole,actorUid){
   await db.collection("users").doc(email).update({ role:newRole, promotedBy:actorUid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  try { await db.collection("userSecrets").doc(String(email).toLowerCase()).update({ role:newRole }); } catch(_){}   // якщо підказки-пароля нема — нічого
 }
 async function updateUserProfile(email, patch){
   await db.collection("users").doc(email).update(Object.assign({}, patch, { updatedAt: firebase.firestore.FieldValue.serverTimestamp() }));
@@ -846,7 +871,7 @@ async function createNewUser(email,password,role,actorUid,name){
     status:"active", promotedBy:actorUid,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
-  try { await db.collection("userSecrets").doc(email).set({ tempPassword:password, createdAt:firebase.firestore.FieldValue.serverTimestamp(), createdBy:actorUid||null }); } catch(ex){ console.warn("tempPass:", ex); }
+  try { await db.collection("userSecrets").doc(email).set({ tempPassword:password, role:role, createdAt:firebase.firestore.FieldValue.serverTimestamp(), createdBy:actorUid||null }); } catch(ex){ console.warn("tempPass:", ex); }
   await secAuth.signOut();
   return cred.user.uid;
 }
@@ -858,12 +883,10 @@ async function restoreUserDoc(email){ await db.collection("users").doc(email).up
 window.__tmpPass = null;
 async function loadTempPasswords(force){
   if (window.__usersWatch && window.__usersWatch.sready){ await window.__usersWatch.sready; return window.__tmpPass || {}; }
-  const K="alexa_tmp_v1";
-  try { if (!force){ const o=JSON.parse(sessionStorage.getItem(K)||"null"); if (o && Date.now()-o.t<3600000){ window.__tmpPass=o.m; return o.m; } } } catch(_){}
-  const m={};
-  try { const qs=await db.collection("userSecrets").get(); qs.forEach(d=>{ const x=d.data(); if (x.tempPassword) m[d.id]=x.tempPassword; }); }
+  const m={};   // паролі НЕ кешуємо в sessionStorage — лише в пам'яті сторінки
+  try { const qs=await secretsQuery().get(); qs.forEach(d=>{ const x=d.data(); if (x.tempPassword) m[d.id]=x.tempPassword; }); }
   catch(ex){ console.warn("tmpPass:", ex); }
-  window.__tmpPass=m; try { sessionStorage.setItem(K, JSON.stringify({t:Date.now(), m})); } catch(_){}
+  window.__tmpPass=m;
   return m;
 }
 async function dropTempPassword(email){ try { await db.collection("userSecrets").doc(String(email).toLowerCase()).delete(); } catch(_){} try { sessionStorage.removeItem("alexa_tmp_v1"); } catch(_){} }
@@ -992,6 +1015,10 @@ const CALL_DETAIL_OVERRIDES = {};
 function paymentCard(p){
   if (!p || !p.status) return null;
   const L = { none:"— Оплати не було", booking:"✓ Бронь", installments:"✓ Оплата частинами", full:"✓ Повна оплата" };
+  // захист від суперечності: заметка з запереченням («оплати не було», «лише обговорювалась») → показуємо «Ні»
+  const NEG=["не було","не вніс","не внес","не оплат","не відбул","ще не","лише обговор","обговорювал","обіця","планує","подума","відмов","потім","пізніше","завтра","можлив"];
+  const low=String(p.note||"").toLowerCase();
+  if (p.status!=="none" && NEG.some(w=>low.includes(w))) p = Object.assign({}, p, { status:"none" });
   const yes = p.status!=="none";
   return el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Чи була оплата"),
     el("div",{class:"pay-row"},
@@ -1028,6 +1055,40 @@ function logAction(action, call, details){
     }).catch(()=>{});
   } catch(_){}
 }
+function openAiLimitModal(u, done){
+  const q = aiQuota(u);
+  const inp = el("input",{type:"number",min:"0",max:"1000",step:"0.5",class:"input",value:String(q.limit)});
+  const err = el("div",{class:"login-err"});
+  const bg = el("div",{class:"modal-bg", onclick:(e)=>{ if (e.target===bg) bg.remove(); }},
+    el("div",{class:"modal",style:"max-width:440px;"},
+      el("h2",{},"Ліміт ІІ на місяць"),
+      el("div",{class:"muted small",style:"margin-bottom:12px;line-height:1.5;"},
+        (u.name||u.email)+": витрачено цього місяця $"+q.spent.toFixed(2)+". Ліміт діє на переаналіз, ручний запуск аналізу й питання ІІ-чату. Автоматичний аналіз нових ефірів у ліміт не входить."),
+      el("div",{class:"modal-row"}, el("label",{},"Ліміт, $ на місяць"), inp), err,
+      el("div",{class:"modal-actions"},
+        el("button",{class:"btn btn-ghost",onclick:()=>bg.remove()},"Скасувати"),
+        el("button",{class:"btn btn-primary",onclick: async ()=>{
+          const v = Number(String(inp.value).replace(",","."));
+          if (!(v>=0) || v>1000){ err.textContent = "Введи число від 0 до 1000"; return; }
+          try { await db.collection("users").doc(u.email).update({ aiLimitUsd: v }); logAction("ai_limit_set", null, u.email+": $"+v.toFixed(2)); bg.remove(); toast("Ліміт збережено","ok"); if (done) done(); }
+          catch(ex){ err.textContent = ex.code||ex.message||String(ex); }
+        }},"Зберегти"))));
+  document.body.appendChild(bg);
+}
+// Невдалий вхід пишемо в журнал (ще без авторизації): id = «email|година» — правила пускають не більше 2 записів на людину за годину
+// і лише для email, що існують у users. Пароль і текст помилки не зберігаємо — лише код помилки.
+function logLoginFail(email, code){
+  try {
+    const e = String(email||"").trim().toLowerCase();
+    if (!e || e.length>120 || e.includes("|") || e.includes("/")) return;
+    const h = Math.floor(Date.now()/3600000);
+    db.collection("audit").doc(e+"|"+h).set({
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      actorEmail: e, actorName:"", actorRole:"", action:"login_failed", callId:null, callTitle:null,
+      details: String(code||"").slice(0,80),
+    }).catch(()=>{});
+  } catch(_){}
+}
 function choiceModal(title, text, options){
   return new Promise(resolve => {
     const done = v => { bg.remove(); resolve(v); };
@@ -1056,9 +1117,9 @@ function confirmModal(title, text, okLabel){
 }
 // Запуск / перезапуск аналізу вручну — завжди з підтвердженням і записом у журнал
 // чи відкритий поточному користувачу доступ до ІІ (адмін може закрити його окремому менеджеру)
-function aiAllowed(){ return !(activeUser && activeUser.role===ROLES.MANAGER && activeUser.aiBlocked); }
+function aiAllowed(){ return !(activeUser && activeUser.role===ROLES.MANAGER && (activeUser.aiBlocked || aiQuota(activeUser).over)); }
 async function startCallAnalysis(c){
-  if (!aiAllowed()){ toast("Доступ до ІІ закрито адміністратором","err"); return false; }
+  if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return false; }
   const ok = await confirmModal("Точно запустити аналіз?",
     "«"+(c.client||c.title||"розмова")+"» піде в обробку, і ІІ витратить гроші на цей аналіз. Запускай, якщо справді потрібно.", "Так, запустити аналіз");
   if (!ok) return false;
@@ -1066,6 +1127,7 @@ async function startCallAnalysis(c){
     ? { status:"queued_for_analysis", stage:"waiting_ai", manualStart:false, error:null }
     : { status: c.audioReady ? "queued" : "ended", stage:"waiting_worker", manualStart:true, error:null };
   upd.restartedBy = activeUser.uid; upd.restartedAt = firebase.firestore.FieldValue.serverTimestamp();
+  upd.analysisRequestedBy = activeUser.email;   // воркер списує витрату ІІ з місячного ліміту цього менеджера
   await db.collection("calls").doc(c.id).update(upd);
   logAction(c.status==="done" ? "restart_analysis" : "start_analysis", c, null);
   return true;
@@ -1137,7 +1199,7 @@ function renderLogin(root){
       const btn=form.querySelector("button[type=submit]");
       btn.disabled=true; btn.textContent="Вхід...";
       try { await auth.signInWithEmailAndPassword(email.trim(),pass); try{ sessionStorage.setItem("alexa_real_login","1"); }catch(_){} }
-      catch(ex){ err.textContent="Невірний email або пароль. ("+(ex.code||ex.message)+")"; btn.disabled=false; btn.textContent="Увійти"; }
+      catch(ex){ logLoginFail(email, ex.code||ex.message); err.textContent="Невірний email або пароль. ("+(ex.code||ex.message)+")"; btn.disabled=false; btn.textContent="Увійти"; }
     }
   },
     el("div",{}, el("div",{class:"login-label"},"Email"), el("input",{type:"email",name:"email",id:"login-email",required:"",autocomplete:"username",class:"login-field"})),
@@ -1265,6 +1327,7 @@ function renderYouTubeCallRow(c, bg){
     onclick: async (e)=>{
       if (c.status === "live"){ alert("Ефір ще йде — дочекайся завершення."); return; }
       if (c.status === "queued_for_analysis"){ return; }
+      if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return; }
       if (!confirm("Поставити цей ефір у чергу на аналіз?\n(Сервер завантажить, розшифрує і проаналізує розмову.)")) return;
       e.target.disabled = true; e.target.textContent = "Відправка...";
       try {
@@ -1438,6 +1501,8 @@ function openProfileSettingsModal(user){
       el("div",{class:"modal-row"}, el("label",{},"Фото"), drop, fileI,
         rmBtn),
       passwordSection(user),
+      user.role==="manager" ? el("div",{class:"modal-row"}, el("label",{},"ІІ цього місяця"),
+        el("div",{class:"muted small"}, (function(){ const q=aiQuota(user); return "$"+q.spent.toFixed(2)+" з $"+q.limit.toFixed(2)+" (переаналіз, ручний запуск, ІІ-чат)"; })())) : null,
       user.role==="manager" ? youTubeConnectSection(user) : null,
       err,
       el("div",{class:"modal-actions", style:"justify-content:space-between;"},
@@ -2145,6 +2210,7 @@ async function renderScripts(root){
   try {
     const allS = await scriptsAll();
     Object.keys(allS).forEach(id => { if ((allS[id]||{}).archived === true) hiddenKeys[id] = allS[id].name || id; });
+    window.__hiddenAt = {}; Object.keys(hiddenKeys).forEach(id => { const t = allS[id].archivedAt; window.__hiddenAt[id] = t ? (t.toMillis ? t.toMillis() : +new Date(t)) : 0; });
   } catch(ex){ console.warn("hidden scripts:", ex); }
   const PKGS = SCRIPT_PACKAGES.filter(p => !hiddenKeys[p.key]).concat(customPkgs);
   if (!PKGS.length) PKGS.push(SCRIPT_PACKAGES[0]);
@@ -2276,7 +2342,7 @@ async function renderScripts(root){
         el("button",{class:"btn btn-danger-outline", onclick: async ()=>{
           const ok = await confirmModal("Прибрати продукт «"+pkg.name+"»?","Продукт зникне зі списку, ІІ більше не розпізнаватиме його. Вже зроблені аналізи не змінюються. Повернути можна внизу списку («Приховані»).","Так, прибрати");
           if (!ok) return;
-          try { await db.collection("scripts").doc(docKey).set({ archived:true, name:pkg.name }, {merge:true}); scriptsPatchLocal(docKey,{archived:true,name:pkg.name}); logAction("remove_product", null, pkg.name); scriptsState.selected=""; renderScripts(root); }
+          try { await db.collection("scripts").doc(docKey).set({ archived:true, name:pkg.name, archivedAt: firebase.firestore.FieldValue.serverTimestamp() }, {merge:true}); scriptsPatchLocal(docKey,{archived:true,name:pkg.name,archivedAt:new Date()}); logAction("remove_product", null, pkg.name); scriptsState.selected=""; renderScripts(root); }
           catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Прибрати продукт"),
         saveBtn) : el("div",{class:"muted small",style:"text-align:right;"},"Тільки для перегляду")
     );
@@ -2305,9 +2371,10 @@ async function renderScripts(root){
 
   const hiddenIds = Object.keys(hiddenKeys);
   if (canEdit && hiddenIds.length) sideList.appendChild(el("div",{style:"padding:10px 16px;border-top:1px solid var(--border);font-size:12px;"},
-    el("div",{class:"muted xs",style:"margin-bottom:4px;"},"Приховані:"),
-    ...hiddenIds.map(k => el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0;"}, el("span",{}, hiddenKeys[k]),
-      el("a",{href:"javascript:void 0",style:"color:var(--brand);",onclick: async ()=>{ try { await db.collection("scripts").doc(k).set({archived:false},{merge:true}); scriptsPatchLocal(k,{archived:false}); logAction("restore_product",null,hiddenKeys[k]); renderScripts(root); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }},"повернути")))));
+    el("div",{class:"muted xs",style:"margin-bottom:4px;"},"Приховані (зберігаються 14 днів, потім видаляються самі):"),
+    ...hiddenIds.map(k => el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 0;"}, el("span",{}, hiddenKeys[k], el("span",{class:"muted xs",style:"margin-left:6px;"},
+        (function(){ const t=(window.__hiddenAt||{})[k]; if (!t) return "· видалиться через 14 дн."; const left=Math.max(0, Math.ceil(14-(Date.now()-t)/86400000)); return left>0 ? "· видалиться через "+left+" дн." : "· видалиться найближчим часом"; })())),
+      el("a",{href:"javascript:void 0",style:"color:var(--brand);",onclick: async ()=>{ try { await db.collection("scripts").doc(k).set({archived:false, archivedAt: firebase.firestore.FieldValue.delete()},{merge:true}); scriptsPatchLocal(k,{archived:false,archivedAt:null}); logAction("restore_product",null,hiddenKeys[k]); renderScripts(root); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }},"повернути")))));
   if (canEdit) sideList.appendChild(el("div",{
     style:"display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;color:var(--brand);font-weight:600;",
     onclick: ()=>openAddProductModal(root)}, el("span",{style:"font-size:22px;line-height:1;width:36px;text-align:center;"},"+"), "Додати продукт"));
@@ -2385,7 +2452,7 @@ function openCreateUserModal(actor, afterCreate){
   const nameI = el("input",{type:"text",placeholder:"Імʼя (необов'язково)"});
   const emailI=el("input",{type:"email",required:"",placeholder:"user@example.com"});
   const passI =el("input",{type:"text",required:"",value:"Temp-"+Math.random().toString(36).slice(2,8)+"!"});
-  const roleS =el("select",{}, assignableRolesFor(actor).map(r=>el("option",{value:r},ROLE_LABEL_UK[r])));
+  const roleS =el("select",{}, [el("option",{value:"",selected:""},"— Оберіть роль —")].concat(assignableRolesFor(actor).map(r=>el("option",{value:r},ROLE_LABEL_UK[r]))));
   const bg=el("div",{class:"modal-bg",onclick:(e)=>{if (e.target===bg) bg.remove();}},
     el("div",{class:"modal"},
       el("h2",{},"Створити користувача"),
@@ -2400,6 +2467,7 @@ function openCreateUserModal(actor, afterCreate){
           err.textContent="";
           const email=emailI.value.trim(), pass=passI.value, role=roleS.value;
           if (!email||!pass){ err.textContent="Email та пароль обов'язкові."; return; }
+          if (!role){ err.textContent="Оберіть роль."; return; }
           if (pass.length<6){ err.textContent="Пароль має бути ≥ 6 символів."; return; }
           if (role!==ROLES.MANAGER){
             const _ok2 = await confirmModal("Створити з підвищеною роллю?", "«"+email+"» отримає роль «"+(ROLE_LABEL_UK[role]||role)+"» і більше прав на сайті.", "Так, створити");
@@ -2490,6 +2558,9 @@ async function renderUsers(root){
             try { await db.collection("users").doc(u.email).update({ aiBlocked: block }); logAction(block?"ai_block_user":"ai_unblock_user", null, u.email); refresh(); }
             catch(ex){ toast(ex.code||ex.message||String(ex),"err"); }
           }}, u.aiBlocked ? "ІІ: закрито" : "ІІ: відкрито"));
+        { const q = aiQuota(u);
+          actions.append(el("button",{class:"btn btn-sm "+(q.over?"btn-danger-outline":"btn-ghost"),title:"Місячний ліміт ІІ для цього менеджера (переаналіз, ручний запуск, ІІ-чат). Натисни, щоб змінити.",
+            onclick:()=>openAiLimitModal(u,refresh)}, "Ліміт ІІ: $"+q.spent.toFixed(2)+" / $"+q.limit.toFixed(2))); }
       }
       actions.append(el("button",{class:"btn btn-ghost btn-sm",title:"Надіслати користувачу лист для зміни пароля",
         onclick: async ()=>{
@@ -2751,17 +2822,17 @@ function renderSettings(root){
 
   // ---- Журнал дій ----
   const ACTION_LBL = { start_analysis:"запустив аналіз", restart_analysis:"перезапустив аналіз", cancel_call:"скасував обробку", chat_question:"поставив питання ІІ-чату",
-    save_script:"змінив",add_product:"додав продукт",delete_user:"видалив менеджера",restore_user:"відновив менеджера",purge_history:"стер історію розмов",remove_user_fully:"повністю прибрав менеджера",remove_product:"прибрав продукт",restore_product:"повернув продукт", ai_pause:"зупинив ІІ",ai_block_user:"закрив доступ до ІІ для",ai_unblock_user:"відкрив доступ до ІІ для",change_password:"змінив свій пароль",reset_password_mail:"надіслав лист для скидання пароля",set_ai_limit:"змінив ліміт витрат ІІ", ai_resume:"увімкнув ІІ",ai_resume_skip_queue:"увімкнув ІІ без аналізу черги", create_user:"створив користувача", change_role:"змінив роль", youtube_connect:"почав(-ла) підключення YouTube (код отримано)",youtube_connect_ok:"підключив(-ла) YouTube ✓",youtube_connect_fail:"не вдалося підключити YouTube ✗",youtube_connect_cancel:"скасував(-ла) підключення YouTube",youtube_reauth_needed:"YouTube потрібно підключити знову ⚠",login:"зайшов(-ла) в акаунт",logout:"вийшов(-ла) з акаунта" };
+    login_failed:"невдала спроба входу",auto_delete_product:"продукт видалено автоматично (14 днів у прихованих)",ai_limit_set:"змінив ліміт ІІ",save_script:"змінив",add_product:"додав продукт",delete_user:"видалив менеджера",restore_user:"відновив менеджера",purge_history:"стер історію розмов",remove_user_fully:"повністю прибрав менеджера",remove_product:"прибрав продукт",restore_product:"повернув продукт", ai_pause:"зупинив ІІ",ai_block_user:"закрив доступ до ІІ для",ai_unblock_user:"відкрив доступ до ІІ для",change_password:"змінив свій пароль",reset_password_mail:"надіслав лист для скидання пароля",set_ai_limit:"змінив ліміт витрат ІІ", ai_resume:"увімкнув ІІ",ai_resume_skip_queue:"увімкнув ІІ без аналізу черги", create_user:"створив користувача", change_role:"змінив роль", youtube_connect:"почав(-ла) підключення YouTube (код отримано)",youtube_connect_ok:"підключив(-ла) YouTube ✓",youtube_connect_fail:"не вдалося підключити YouTube ✗",youtube_connect_cancel:"скасував(-ла) підключення YouTube",youtube_reauth_needed:"YouTube потрібно підключити знову ⚠",login:"зайшов(-ла) в акаунт",logout:"вийшов(-ла) з акаунта" };
   const histList = el("div",{style:"display:flex;flex-direction:column;"});
   const histSel = el("select",{class:"input",style:"max-width:200px;"},
     el("option",{value:"all"},"Усі ролі"), el("option",{value:"manager"},"Менеджери"), el("option",{value:"admin"},"Адміни"), el("option",{value:"main_admin"},"Головний адмін"));
-  let histRows = [], histAll = false;
+  let histRows = [], histLevel = 0, histFull = false;   // 0 → 5 записів, 1 → 20, 2 → усі
   function paintHist(){
     histList.replaceChildren();
     const f = histSel.value;
     const rows = histRows.filter(r => f==="all" || r.actorRole===f);
     if (!rows.length){ histList.appendChild(el("div",{class:"muted small",style:"padding:10px 0;"},"Поки порожньо.")); return; }
-    (histAll ? rows : rows.slice(0,5)).forEach(r => {
+    rows.slice(0, histLevel===0 ? 5 : histLevel===1 ? 20 : rows.length).forEach(r => {
       const t = r.ts && r.ts.toDate ? r.ts.toDate() : null;
       const who = (r.actorName||r.actorEmail||"?") + " · " + (ROLE_LABEL_UK[r.actorRole]||r.actorRole||"");
       const row = el("div",{style:"display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;"},
@@ -2772,15 +2843,21 @@ function renderSettings(root){
         r.details ? el("span",{class:"muted small"}, r.details) : null);
       histList.appendChild(row);
     });
-    if (rows.length > 5){
-      histList.appendChild(el("button",{class:"btn btn-ghost btn-sm",style:"align-self:flex-start;margin-top:10px;",
-        onclick:()=>{ histAll = !histAll; paintHist(); }}, histAll ? "Згорнути" : "Показати ще ("+(rows.length-5)+")"));
-    }
+    const moreBtn = (label, fn) => histList.appendChild(el("button",{class:"btn btn-ghost btn-sm",style:"align-self:flex-start;margin-top:10px;", onclick:fn}, label));
+    if (histLevel===0 && rows.length>5) moreBtn("Показати ще (до 20)", ()=>{ histLevel=1; paintHist(); });
+    else if (histLevel===1 && (rows.length>20 || !histFull)) moreBtn("Показати всі", async (e)=>{
+      e.target.disabled = true; e.target.textContent = "Завантаження...";
+      try {
+        if (!histFull){ const sn = await db.collection("audit").orderBy("ts","desc").get(); histRows = sn.docs.map(d=>d.data()); histFull = true; window.__auditCache = { t:Date.now(), rows:histRows }; }
+      } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); }
+      histLevel = 2; paintHist();
+    });
+    else if (histLevel===2) moreBtn("Згорнути", ()=>{ histLevel=0; paintHist(); });
   }
-  histSel.addEventListener("change", ()=>{ histAll = false; paintHist(); });
+  histSel.addEventListener("change", ()=>{ histLevel = 0; paintHist(); });
   const _au = window.__auditCache;
   (_au && Date.now()-_au.t < 120000 ? Promise.resolve(_au.rows) : db.collection("audit").orderBy("ts","desc").limit(60).get().then(sn=>{ const r = sn.docs.map(d=>d.data()); window.__auditCache = { t:Date.now(), rows:r }; return r; }))
-    .then(rows=>{ histRows = rows; paintHist(); })
+    .then(rows=>{ histRows = rows; histFull = rows.length !== 60; paintHist(); })
     .catch(ex=>{ histList.replaceChildren(el("div",{class:"muted small"},"Не вдалося прочитати журнал: "+(ex.code||ex.message||ex))); });
   const historyCard = el("div",{class:"card",style:"grid-column:1/-1;"},
     el("div",{class:"section-title"}, el("span",{},"Історія дій"), histSel),
@@ -3277,7 +3354,7 @@ function renderCallDetail(root, callId){
   }
   async function sendMsg(text){
     if (!text || !text.trim()) return;
-    if (!aiAllowed()){ toast("Доступ до ІІ-чату закрито адміністратором","err"); return; }
+    if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return; }
     const _cur = callsAll().find(c => c.id===callId);
     if (!(_cur && (_cur.transcriptReady || _cur.status==="done"))){ toast("Чат доступний після транскрибації розмови","err"); return; }
     const msg = {
@@ -3462,7 +3539,7 @@ async function openAddCallFullscreen(){
         managerUid: (actor.email === mgr ? actor.uid : null),
         client: finalClient,
         title: finalClient,
-        videoUrl: url,
+        videoUrl: "https://www.youtube.com/watch?v="+videoId,   // канонічне посилання (правила й сервер приймають лише YouTube)
         videoId: videoId,
         channelId: null,
         channelTitle: null,

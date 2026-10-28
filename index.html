@@ -427,6 +427,154 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .loading{color:var(--text-muted);padding:var(--s-5);text-align:center}
 .row-disabled{opacity:.55}
 .empty{color:var(--text-muted);text-align:center;padding:32px 20px;font-size:13.5px}
+
+/* ===== mobile (basic adaptation) ===== */
+@media (max-width:900px){
+  .navbar{height:auto;flex-wrap:wrap;gap:var(--s-2);padding:var(--s-2) var(--s-3);margin:var(--s-3) auto}
+  .navbar__menu{display:flex;order:2;flex:1 0 100%;flex-wrap:wrap;gap:4px}
+  .navbar__item{flex:none;white-space:nowrap}
+  .navbar__actions{margin-left:auto;order:1}
+}
+@media (max-width:700px){
+  .app-shell{padding:0 var(--s-3) var(--s-8)}
+  .navbar{width:calc(100% - var(--s-3)*2)}
+  .page-title{font-size:22px;margin:var(--s-4) 0 var(--s-3)}
+  .page-header{margin:var(--s-4) 0 var(--s-3)}
+  .ov-top{grid-template-columns:1fr 1fr;gap:var(--s-3)}
+  .filters{gap:var(--s-2)}
+  .filters > *{flex:1 1 100%;min-width:0}
+  .filters .input--search,.input--search{min-width:0;width:100%}
+  .dd,.dd__btn{width:100%}
+  .dd__pop{max-width:calc(100vw - 32px)}
+  .cal{width:min(300px,calc(100vw - 32px))}
+  .input,.login-field,select,textarea,input{font-size:16px}
+  .calls-row{display:flex;flex-wrap:wrap;gap:8px 12px}
+  .calls-row > *{flex:1 1 42%;min-width:0}
+  .table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .table tbody,.table thead{white-space:nowrap}
+  .table th,.table td{padding:10px 12px;white-space:nowrap}
+  .modal-bg{padding:10px;align-items:flex-start}
+  .modal{padding:18px;max-height:calc(100vh - 20px)}
+  .modal-wide{max-width:100% !important}
+  .modal-actions{flex-wrap:wrap}
+  .cv-overlay{padding:0}
+  .cv-modal{height:100vh;height:100dvh;border-radius:0}
+  .cv-modal--sm{height:auto;margin:10px;max-height:calc(100dvh - 20px);border-radius:16px}
+  .cv-modal__header{padding:12px 14px;gap:8px;flex-wrap:wrap}
+  .cv-modal__title{font-size:16px}
+  .cv-modal__body{padding:12px;overflow-y:auto;display:block}
+  .cv-modal__body--plain{padding:16px}
+  .cv-grid{display:flex;flex-direction:column;gap:var(--s-4);flex:none}
+  .cv-pane-left{overflow:visible;padding-right:0;flex:none}
+  .cv-pane-right-flex,.cv-pane-right{flex:none;height:auto;min-height:0;overflow:visible}
+  .cv-player{position:static}
+  .cv-splitter{display:none}
+  .cv-player,.cv-player__video{height:auto !important}
+  .cv-player__video{aspect-ratio:16/9}
+  .cv-chat{min-height:380px;max-height:70vh;flex:none}
+  .cv-tabs{display:flex;overflow-x:auto;max-width:100%}
+  .cv-tabs > *{flex:none;white-space:nowrap}
+  .cv-card{padding:var(--s-4)}
+  .cv-prog{margin:0 12px 6px}
+  .cv-prog__steps{flex-wrap:wrap;gap:6px 12px}
+  .cv-form__actions{flex-wrap:wrap}
+  .cv-chat__msg{max-width:92%}
+  .pay-row{flex-wrap:wrap}
+}
+@media (max-width:420px){
+  .ov-top{grid-template-columns:1fr}
+  .calls-row > *{flex:1 1 100%}
+  .navbar__name{max-width:120px}
+}
+
+@media (max-width:700px){
+  /* нижня панель вкладок */
+  body{padding-bottom:76px}
+  .navbar{width:calc(100% - var(--s-3)*2);flex-wrap:nowrap;justify-content:space-between;height:52px;padding:0 var(--s-2) 0 var(--s-4);border-radius:var(--r-lg)}
+  .navbar::before{content:"Aleksa · Контроль якості";font-weight:700;font-size:14px;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .navbar__actions{order:2;margin-left:0}
+  .navbar__menu{position:fixed;left:0;right:0;bottom:0;z-index:120;order:0;flex:none;flex-wrap:nowrap;gap:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(16,24,40,.08);padding:6px 6px calc(6px + env(safe-area-inset-bottom));justify-content:space-around}
+  .navbar__item{flex:1 1 0;min-width:0;flex-direction:column;gap:2px;padding:6px 2px;border-radius:12px;font-size:9.5px;letter-spacing:-.2px;line-height:1.15;text-align:center;white-space:normal;overflow:hidden;word-break:normal}
+  .navbar__item svg{width:20px;height:20px}
+  .navbar__item.is-active{box-shadow:none}
+  .navbar__name{max-width:130px}
+  .toast{bottom:90px !important}
+  /* скрипти: список продуктів зверху, редактор нижче */
+  div[style*="grid-template-columns:280px 1fr"]{grid-template-columns:1fr !important}
+  .card[style*="grid-template-columns:1fr 100px 36px"]{grid-template-columns:minmax(0,1fr) 64px 32px !important;padding:10px !important}
+  textarea,.input{min-width:0;max-width:100%}
+  .page-title{font-size:20px}
+  .cv-modal__body--plain{padding:14px}
+}
+
+@media (max-width:700px){
+  .page-header{flex-direction:column;align-items:stretch;gap:var(--s-3)}
+  .page-header .page-title{text-align:left}
+  .tabs{display:flex;width:100%;justify-content:center;border-radius:18px}
+  .tabs button{flex:1 1 0;justify-content:center;padding:8px 6px;text-align:center;white-space:nowrap}
+  .page-header + .muted{text-align:center;margin-top:0 !important}
+  .ov-top{grid-template-columns:repeat(3,1fr) !important}
+  .kpi,.ov-top > *{text-align:center}
+}
+@media (max-width:420px){
+  .ov-top{grid-template-columns:1fr 1fr !important}
+  .ov-top > :last-child:nth-child(odd){grid-column:1/-1}
+}
+
+@media (max-width:700px){
+  /* картка розмови: компактна сітка без порожнього місця */
+  .calls-row.calls-grid{display:grid !important;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"mgr score" "client score" "sum score" "date status";gap:4px 12px;padding:12px 14px;align-items:center}
+  .calls-row.calls-grid > *{flex:none;min-width:0}
+  .calls-row.calls-grid > :nth-child(1){grid-area:date;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding-top:6px;margin-top:2px;border-top:1px solid var(--border)}
+  .calls-row.calls-grid > :nth-child(1) > *{display:inline}
+  .calls-row.calls-grid > :nth-child(2){grid-area:mgr}
+  .calls-row.calls-grid > :nth-child(3){grid-area:client;font-size:14.5px;font-weight:600;white-space:normal;overflow:hidden;text-overflow:ellipsis}
+  .calls-row.calls-grid > :nth-child(4){grid-area:sum;white-space:normal !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+  .calls-row.calls-grid > :nth-child(5){grid-area:status;justify-self:end;padding-top:6px;margin-top:2px;border-top:1px solid var(--border);align-self:stretch}
+  .calls-row.calls-grid > :nth-child(6){grid-area:score;align-self:center;justify-self:end}
+  .calls-row.calls-grid > :nth-child(7){display:none}
+}
+
+@media (max-width:700px){
+  /* шапка картки розмови */
+  .cv-modal__header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 10px;padding:12px 14px}
+  .cv-modal__header > div:first-child{grid-column:1;grid-row:1;min-width:0}
+  .cv-modal__header > .cv-modal__close{grid-column:2;grid-row:1}
+  .cv-modal__header > a,.cv-modal__header > button:not(.cv-modal__close){grid-column:1/-1;width:100%;justify-content:center;margin:0 !important;text-align:center}
+  .cv-modal__title{font-size:16px;line-height:1.3;word-break:break-word}
+  .cv-modal__sub{line-height:1.4}
+  /* вкладки без скролу */
+  .cv-tabs{display:flex;flex-wrap:wrap;width:100%;overflow:visible;border-radius:18px;justify-content:center;position:static;box-shadow:none}
+  .cv-tabs > *{flex:1 1 auto;text-align:center;justify-content:center;white-space:nowrap}
+}
+
+@media (max-width:700px){
+  /* вся картка розмови гортається разом з шапкою */
+  .cv-modal{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:block}
+  .cv-modal__body{overflow:visible;flex:none;min-height:0}
+  .cv-modal__header{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cv-modal__header > div:first-child{grid-column:1/2;grid-row:1}
+  .cv-modal__header > .cv-modal__close{grid-column:2;grid-row:1;justify-self:end}
+  .cv-modal__header > a,.cv-modal__header > button:not(.cv-modal__close){grid-column:auto;grid-row:auto;width:100%;padding:0 8px;font-size:12.5px}
+  .cv-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
+  .cv-tabs > *{flex:0 0 calc(33.333% - 2px)}
+  .cv-tabs > *{padding-left:6px;padding-right:6px}
+}
+
+@media (max-width:700px){
+  .aud-row{gap:2px 10px !important;padding:10px 0 !important;align-items:baseline !important}
+  .aud-row .aud-t{min-width:0 !important;flex:none}
+  .aud-row .aud-w{flex:1 1 0;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .aud-row .aud-x{flex:1 1 100%;font-size:13.5px;line-height:1.4}
+  .section-title{flex-wrap:wrap}
+  .section-title select{max-width:100% !important}
+}
+
+
+@media (max-width:700px){
+  .period-seg{display:flex;width:100%}
+  .period-seg button{flex:1 1 0;min-width:0;padding:8px 4px;text-align:center;white-space:nowrap}
+}
 </style>
 </head>
 <body>
@@ -454,6 +602,24 @@ const db   = firebase.firestore();
 // Локальний кеш: повторне відкриття сайту не перечитує розмови заново, а лише дізнається про зміни (економія квоти читань).
 try { db.enablePersistence({ synchronizeTabs:true }).catch(()=>{}); } catch(_){}
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+// Захист від «білого екрана»: якщо за 12 с нічого не відмалювалось (зависла локальна база через інші вкладки тощо) — показуємо вихід.
+setTimeout(()=>{
+  try {
+    const a = document.getElementById("app");
+    // спрацьовує лише якщо досі висить початкове «Завантаження…» і нічого більше не намальовано
+    if (!a || document.querySelector(".navbar,.login-wrap,.login-card,.app-shell")) return;
+    if (!(a.children.length===1 && a.firstElementChild.classList.contains("loading"))) return;
+    const box = document.createElement("div");
+    box.style.cssText = "max-width:420px;margin:15vh auto;padding:24px;text-align:center;font-family:system-ui,sans-serif;color:#151A2E;";
+    const t = document.createElement("div"); t.style.cssText = "font-weight:700;font-size:18px;margin-bottom:8px;"; t.textContent = "Сайт довго завантажується";
+    const m = document.createElement("div"); m.style.cssText = "color:#667085;font-size:14px;line-height:1.5;margin-bottom:16px;"; m.textContent = "Закрий інші вкладки з цим сайтом і оновіть сторінку. Якщо не допомогло — очисти локальний кеш (вхід збережеться).";
+    const b1 = document.createElement("button"); b1.textContent = "Оновити"; b1.style.cssText = "padding:10px 18px;border-radius:10px;background:#3B5BDB;color:#fff;font-weight:600;margin:4px;";
+    b1.onclick = ()=>location.reload();
+    const b2 = document.createElement("button"); b2.textContent = "Очистити кеш і оновити"; b2.style.cssText = "padding:10px 18px;border-radius:10px;border:1px solid #E4E7EF;background:#fff;font-weight:600;margin:4px;";
+    b2.onclick = async ()=>{ try { await db.terminate(); await db.clearPersistence(); } catch(_){} location.reload(); };
+    box.append(t, m, b1, b2); a.replaceChildren(box);
+  } catch(_){}
+}, 12000);
 
 // YouTube OAuth (web client из GCP). client_id публичный, secret в site НЕ попадает — он у сервера.
 const YOUTUBE_OAUTH = {
@@ -2843,12 +3009,12 @@ function renderSettings(root){
     rows.slice(0, histLevel===0 ? 5 : histLevel===1 ? 20 : rows.length).forEach(r => {
       const t = r.ts && r.ts.toDate ? r.ts.toDate() : null;
       const who = (r.actorName||r.actorEmail||"?") + " · " + (ROLE_LABEL_UK[r.actorRole]||r.actorRole||"");
-      const row = el("div",{style:"display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;"},
-        el("span",{class:"muted xs",style:"min-width:110px;font-variant-numeric:tabular-nums;"}, t ? t.toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "…"),
-        el("span",{style:"font-weight:500;"}, who),
-        el("span",{}, ACTION_LBL[r.action]||r.action),
-        r.callId ? el("a",{href:"#/calls/"+r.callId, style:"color:var(--brand);"}, "«"+(r.callTitle||r.callId)+"»") : null,
-        r.details ? el("span",{class:"muted small"}, r.details) : null);
+      const row = el("div",{class:"aud-row",style:"display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;"},
+        el("span",{class:"muted xs aud-t",style:"min-width:110px;font-variant-numeric:tabular-nums;"}, t ? t.toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "…"),
+        el("span",{class:"aud-w",style:"font-weight:500;"}, who),
+        el("span",{class:"aud-x"}, ACTION_LBL[r.action]||r.action),
+        r.callId ? el("a",{class:"aud-x",href:"#/calls/"+r.callId, style:"color:var(--brand);"}, "«"+(r.callTitle||r.callId)+"»") : null,
+        r.details ? el("span",{class:"muted small aud-x"}, r.details) : null);
       histList.appendChild(row);
     });
     const moreBtn = (label, fn) => histList.appendChild(el("button",{class:"btn btn-ghost btn-sm",style:"align-self:flex-start;margin-top:10px;", onclick:fn}, label));

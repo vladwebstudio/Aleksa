@@ -1014,7 +1014,7 @@ const MOCK_CHAT_SUGGESTIONS = ["Чи був завдаток?","Які були 
 const CALL_DETAIL_OVERRIDES = {};
 
 // Плашка «Чи була оплата» (поле payment з аналізу; для старих розмов без поля — не показуємо)
-function paymentCard(p){
+function paymentCard(p, jump){
   if (!p || !p.status) return null;
   // Нові аналізи (v:2): статус підтверджений дослівною цитатою з розшифровки, нотатку збирає сервер — тут лише показуємо.
   // Старі аналізи (без v): статус і нотатку писала модель вільним текстом. Лише явне «оплати не було» на початку нотатки
@@ -1028,7 +1028,10 @@ function paymentCard(p){
     el("div",{class:"pay-row"},
       el("span",{class:"pay-pill "+cls}, L[st]||L.unclear),
       note ? el("span",{class:"pay-note"}, note) : null),
-    (p.quote && st!=="none" && st!=="unclear") ? el("div",{class:"pay-quote"}, "«"+p.quote+"»"+(p.ts?" · "+p.ts:"")) : null);
+    (p.quote && st!=="none" && st!=="unclear") ? el("div",{class:"pay-quote"}, "«"+p.quote+"»",
+      (p.ts && /^\d{1,2}:\d{2}(:\d{2})?$/.test(String(p.ts)) && jump)
+        ? el("span",{},"  ", el("button",{class:"tc", type:"button", style:"font-style:normal;margin:0;", title:"Відкрити в транскрипті", onclick:()=>jump(String(p.ts))}, String(p.ts)))
+        : (p.ts ? " · "+p.ts : null)) : null);
 }
 function callDetailMock(call){
   // Реальні дані підтягуються з Firestore (chunks, analysis/main). Поки їх нема — порожньо.
@@ -3123,7 +3126,7 @@ function renderCallDetail(root, callId){
               el("div",{class:"cv-summary"}, d.sections.map(sec => el("div",{class:"cv-summary__item"},
                 el("div",{class:"cv-summary__h"}, sec.title), el("div",{class:"cv-summary__p"}, sec.text)))))
           : emptyCard("Короткий зміст", "Поки немає даних — розмова ще не оброблена"),
-        paymentCard(d.payment),
+        paymentCard(d.payment, jumpToTranscript),
         el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Домовленості"),
           d.agreements.length ? el("ul",{style:"margin:0;padding-left:20px;line-height:1.6;font-size:13.5px;"}, d.agreements.map(a=>el("li",{},a))) : el("div",{class:"muted small"},"Поки немає даних")),
         el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Наступні кроки"),

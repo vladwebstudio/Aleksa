@@ -498,7 +498,8 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   .navbar__item svg{width:20px;height:20px}
   .navbar__item.is-active{box-shadow:none}
   .navbar__name{max-width:130px}
-  .toast{bottom:90px !important}
+  .toast{top:auto !important;bottom:calc(84px + env(safe-area-inset-bottom)) !important;left:50%;width:max-content;max-width:calc(100vw - 32px);white-space:normal;text-align:center;line-height:1.35;padding:10px 16px;transform:translateX(-50%) translateY(14px)}
+  .toast.is-show{transform:translateX(-50%) translateY(0)}
   /* скрипти: список продуктів зверху, редактор нижче */
   div[style*="grid-template-columns:280px 1fr"]{grid-template-columns:1fr !important}
   .card[style*="grid-template-columns:1fr 100px 36px"]{grid-template-columns:minmax(0,1fr) auto !important;grid-template-areas:"main main" "weight del";padding:12px !important;gap:10px !important;align-items:center !important}
@@ -540,14 +541,38 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   .calls-row.calls-grid > :nth-child(7){display:none}
 }
 
+.cv-hmain{flex:1;min-width:0}
+.cv-hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cv-hbtns{display:contents}
+.cv-jump{display:none}
+@media (max-width:700px){
+  .cv-jump{display:flex;flex-direction:column;gap:8px;position:fixed;right:12px;bottom:calc(18px + env(safe-area-inset-bottom));z-index:320;pointer-events:none}
+  .cv-jump button{width:40px;height:40px;padding:0;border-radius:50%;border:1px solid var(--border);background:rgba(255,255,255,.94);color:var(--text-muted);box-shadow:0 4px 14px rgba(16,24,40,.18);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.7);transition:opacity .18s,transform .18s;pointer-events:none}
+  .cv-jump button.is-on{opacity:.92;transform:none;pointer-events:auto}
+  /* підсвітка «зверни увагу» в нижньому меню: outline там обрізається overflow, тому фон */
+  .navbar__item.has-warn,.navbar__item.has-danger{outline:none;box-shadow:inset 0 0 0 2px var(--warn);overflow:visible}
+  .navbar__item.has-warn{animation:attnBgY 2.2s ease-in-out infinite}
+  .navbar__item.has-danger{box-shadow:inset 0 0 0 2px var(--danger);animation:attnBgR 2.2s ease-in-out infinite}
+  /* Огляд: цифри й підписи по центру */
+  .ov-top .card{text-align:center}
+  .ov-top .card__title{justify-content:center}
+  .ov-top .kpi__value,.ov-top .muted{text-align:center}
+}
+@keyframes attnBgY{0%,100%{background:rgba(245,179,1,.08)}50%{background:rgba(245,179,1,.34)}}
+@keyframes attnBgR{0%,100%{background:rgba(239,68,68,.08)}50%{background:rgba(239,68,68,.30)}}
 @media (max-width:700px){
   /* шапка картки розмови */
-  .cv-modal__header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 10px;padding:12px 14px}
-  .cv-modal__header > div:first-child{grid-column:1;grid-row:1;min-width:0}
-  .cv-modal__header > .cv-modal__close{grid-column:2;grid-row:1}
-  .cv-modal__header > a,.cv-modal__header > button:not(.cv-modal__close){grid-column:1/-1;width:100%;justify-content:center;margin:0 !important;text-align:center}
-  .cv-modal__title{font-size:16px;line-height:1.3;word-break:break-word}
-  .cv-modal__sub{line-height:1.4}
+  .cv-modal__header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"kind stat close" "name name name" "sub sub sub" "note note note" "btns btns btns";align-items:center;gap:0 10px;padding:12px 14px}
+  .cv-hmain,.cv-hrow,.cv-modal__title{display:contents}
+  .cv-kind{grid-area:kind;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}
+  .cv-sep{display:none}
+  .cv-name{grid-area:name;font-size:17px;font-weight:700;line-height:1.3;word-break:break-word;margin-top:4px}
+  .cv-hstat{grid-area:stat;justify-self:end}
+  .cv-hnote{grid-area:note;margin-top:4px}
+  .cv-modal__header > .cv-modal__close{grid-area:close}
+  .cv-modal__sub{grid-area:sub;line-height:1.4;margin-top:3px}
+  .cv-hbtns{grid-area:btns;display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .cv-hbtns > *{flex:1 1 calc(50% - 4px);min-width:0;width:auto;margin:0 !important;justify-content:center;text-align:center;padding:0 8px;font-size:12.5px}
   /* вкладки без скролу */
   .cv-tabs{display:flex;flex-wrap:wrap;width:100%;overflow:visible;border-radius:18px;justify-content:center;position:static;box-shadow:none}
   .cv-tabs > *{flex:1 1 auto;text-align:center;justify-content:center;white-space:nowrap}
@@ -557,10 +582,13 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   /* вся картка розмови гортається разом з шапкою */
   .cv-modal{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:block}
   .cv-modal__body{overflow:visible;flex:none;min-height:0}
-  .cv-modal__header{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .cv-modal__header > div:first-child{grid-column:1/2;grid-row:1}
-  .cv-modal__header > .cv-modal__close{grid-column:2;grid-row:1;justify-self:end}
-  .cv-modal__header > a,.cv-modal__header > button:not(.cv-modal__close){grid-column:auto;grid-row:auto;width:100%;padding:0 8px;font-size:12.5px}
+  /* повзунок прокрутки і компактна транскрипція */
+  .cv-modal{scrollbar-width:thin;scrollbar-color:rgba(100,116,139,.45) transparent}
+  .cv-modal::-webkit-scrollbar{width:4px}
+  .cv-modal::-webkit-scrollbar-thumb{background:rgba(100,116,139,.45);border-radius:3px}
+  .tr-box{padding:6px 8px;border-radius:10px}
+  .tr-plain{font-size:13px;line-height:1.5;padding:2px 3px}
+  .tr-line{grid-template-columns:46px 20px minmax(0,1fr);gap:6px;padding:6px 2px}
   .cv-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:2px}
   .cv-tabs > *{flex:0 0 calc(33.333% - 2px)}
   .cv-tabs > *{padding-left:6px;padding-right:6px}
@@ -748,7 +776,7 @@ function toast(text, kind){
   t.textContent = text;
   document.body.appendChild(t);
   requestAnimationFrame(()=>t.classList.add("is-show"));
-  setTimeout(()=>{ t.classList.remove("is-show"); setTimeout(()=>t.remove(), 300); }, 1800);
+  setTimeout(()=>{ t.classList.remove("is-show"); setTimeout(()=>t.remove(), 300); }, Math.min(6000, 1800 + String(text||"").length * 35));
 }
 
 function fmtDur(s){ if (!s) return "—"; const m=Math.floor(s/60), ss=s%60; return (m<10?"0":"")+m+":"+(ss<10?"0":"")+ss; }
@@ -1129,7 +1157,7 @@ function startCallsSubscription(user){
       : base.where("managerEmail","==", user.email);  // без orderBy: where+orderBy по разным полям требует composite index → permission/failed-precondition
     window.__callsSub = query.onSnapshot(snap => {
       window.__callsLoaded = true;
-      window.__calls = snap.docs.map(d => Object.assign({ id: d.id }, d.data()))
+      window.__calls = snap.docs.map(d => { const o = Object.assign({ id: d.id }, d.data()); if (o.status==="canceled" && o.stage==="revert_to_done") o.status = "done"; return o; })
         .sort((a,b) => String(b.startedAt||"").localeCompare(String(a.startedAt||"")));
       window.dispatchEvent(new Event(CALLS_CHANGED_EVT));
     }, err => {
@@ -1330,9 +1358,28 @@ async function startCallAnalysis(c){
   logAction(c.status==="done" ? "restart_analysis" : "start_analysis", c, null);
   return true;
 }
+// Повертає true, якщо у розмови вже був готовий аналіз: тоді після скасування лишається СТАРИЙ аналіз і статус «Готово»
 async function cancelCall(c){
-  await db.collection("calls").doc(c.id).update({ status:"canceled", stage:"canceled_by_user", canceledBy: activeUser.uid });
-  logAction("cancel_call", c, null);
+  let keep = false;
+  try { keep = !!c.transcriptReady && (await db.collection("calls").doc(c.id).collection("analysis").doc("main").get()).exists; } catch(_){}
+  await db.collection("calls").doc(c.id).update({ status:"canceled", stage: keep ? "revert_to_done" : "canceled_by_user", canceledBy: activeUser.uid });
+  logAction("cancel_call", c, keep ? "лишився попередній аналіз" : null);
+  return keep;
+}
+
+// Мобільні кнопки «вгору / вниз» у картці розмови (на ПК приховані CSS-ом)
+function cvAttachJump(ov, modal, body){
+  const up = el("button",{type:"button",title:"Вгору",onclick:()=>modal.scrollTo({top:0,behavior:"smooth"})},"↑");
+  const dn = el("button",{type:"button",title:"Вниз",onclick:()=>modal.scrollTo({top:modal.scrollHeight,behavior:"smooth"})},"↓");
+  ov.appendChild(el("div",{class:"cv-jump"}, up, dn));
+  const upd = ()=>{
+    const max = modal.scrollHeight - modal.clientHeight, y = modal.scrollTop;
+    up.classList.toggle("is-on", max>500 && y>300);
+    dn.classList.toggle("is-on", max>500 && y<max-300);
+  };
+  modal.addEventListener("scroll", upd, {passive:true});
+  if (window.ResizeObserver){ try { new ResizeObserver(upd).observe(body); } catch(_){} }
+  upd();
 }
 
 function statusBadge(status){
@@ -2042,11 +2089,11 @@ function renderCalls(root){
           PROC_STATES.includes(c.status) ? el("div",{class:"pbar pbar--mini"}, el("span",{style:"width:"+progressPct(c)+"%", "data-lpb":c.id})) : null,
           (aiAllowed() && ["idle","canceled","error","transcribed"].includes(c.status)) ? el("button",{class:"btn btn-primary btn-sm calls-act", title:(c.transcriptReady?"Зробити аналіз":"Почати аналіз"),
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
-              try { const ok = await startCallAnalysis(c); if (ok) toast("Поставлено в чергу","ok"); else b.disabled=false; }
+              try { const ok = await startCallAnalysis(c); if (ok) toast("Передано на виконання","ok"); else b.disabled=false; }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null,
           ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(c.status) ? el("button",{class:"btn btn-ghost btn-sm calls-act", title:"Скасувати",
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
-              try { await cancelCall(c); toast("Скасовано","ok"); }
+              try { const keep = await cancelCall(c); toast(keep ? "Скасовано — лишився попередній аналіз" : "Скасовано","ok"); }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "✕") : null),
         el("div",{class:"calls-row__cell",style:"display:flex;justify-content:flex-end;align-items:center;"}, score!=null ? scoreRing(score, 40) : el("span",{class:"muted"},"—")),
         el("div",{style:"color:var(--text-faint);text-align:right;"}, ICONS.chevronRight())
@@ -2805,18 +2852,21 @@ async function renderUsers(root){
         el("tbody",{}, rows.length?rows:el("tr",{},el("td",{colspan:3,class:"empty"},"Нічого не знайдено."))))),
     deletedList.length ? el("div",{class:"card",style:"margin-top:var(--s-4);"},
       el("div",{class:"section-title"}, el("span",{},"Видалені користувачі")),
-      el("div",{class:"muted xs",style:"margin-bottom:8px;"},"Входу нема, але розмови й аналізи менеджерів лишаються на сайті. «Очистити історію» стирає всі розмови менеджера назавжди; після цього з'являється «Прибрати повністю»."),
+      el("div",{class:"muted xs",style:"margin-bottom:8px;"},"Входу нема, але розмови й аналізи менеджерів лишаються на сайті. Якщо в менеджера є розмови — спочатку «Очистити історію» (стирає їх назавжди), після цього з'являється «Прибрати повністю». Якщо розмов нема — одразу «Прибрати повністю»."),
       ...deletedList.map(u => {
         const n = callsAll().filter(c => c.managerEmail===u.email).length;
         return el("div",{style:"display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--border);flex-wrap:wrap;"},
           el("div",{style:"flex:1;min-width:160px;"}, el("div",{style:"font-weight:500;"}, u.name), el("div",{class:"muted xs"}, u.email+" · "+(ROLE_LABEL_UK[u.role]||u.role)+(u.role===ROLES.MANAGER ? " · розмов: "+n : ""))),
-          canActOn(actor,u) ? el("button",{class:"btn btn-ghost btn-sm", onclick: async ()=>{ try { await restoreUserDoc(u.email); logAction("restore_user", null, u.email); refresh(); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Відновити") : null,
-          (canActOn(actor,u) && u.role===ROLES.MANAGER) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick:()=>openPurgeModal(u, n, refresh)}, "Очистити історію") : null,
-          canActOn(actor,u) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick: async ()=>{
+          canActOn(actor,u) ? el("button",{class:"btn btn-ghost btn-sm", onclick: async ()=>{
+            const okR = await confirmModal("Відновити «"+(u.name||u.email).replace(" (видалений)","")+"»?", "Користувач знову зможе заходити на сайт зі своїм поточним паролем і роллю «"+(ROLE_LABEL_UK[u.role]||u.role)+"».", "Так, відновити");
+            if (!okR) return;
+            try { await restoreUserDoc(u.email); logAction("restore_user", null, u.email); refresh(); } catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Відновити") : null,
+          (canActOn(actor,u) && u.role===ROLES.MANAGER && n>0) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick:()=>openPurgeModal(u, n, refresh)}, "Очистити історію") : null,
+          (canActOn(actor,u) && !(u.role===ROLES.MANAGER && n>0)) ? el("button",{class:"btn btn-danger-outline btn-sm", onclick: async ()=>{
             const ok = await confirmModal("Прибрати «"+u.name.replace(" (видалений)","")+"» повністю?",
               "Акаунт входу й запис менеджера буде видалено назавжди — той самий email можна буде створити заново."+(n ? " Його розмови ("+n+" шт.) ЛИШАТЬСЯ, але без імені — лише з поштою. Якщо вони не потрібні, спочатку натисни «Очистити історію»." : ""), "Так, прибрати повністю");
             if (!ok) return;
-            try { await requestDeleteUserFull(u.email); logAction("remove_user_fully", null, u.email); toast("Команду передано серверу — акаунт зникне за кілька секунд","ok"); setTimeout(refresh, 6000); }
+            try { await requestDeleteUserFull(u.email); logAction("remove_user_fully", null, u.email); toast("Передано на виконання — акаунт зникне, щойно задача виконається","ok"); setTimeout(refresh, 6000); }
             catch(ex){ toast(ex.code||ex.message||String(ex),"err"); } }}, "Прибрати повністю") : null);
       })) : document.createDocumentFragment()
   );
@@ -2848,7 +2898,7 @@ function openPurgeModal(u, n, after){
         el("button",{class:"btn btn-danger-outline", onclick: async (e)=>{
           if (inp.value.trim().toUpperCase()!=="ВИДАЛИТИ"){ err.textContent="Напиши слово ВИДАЛИТИ."; return; }
           e.target.disabled=true;
-          try { await requestPurgeManager(u.email); logAction("purge_history", null, u.email+" ("+n+" розмов)"); bg.remove(); toast("Команду передано серверу — розмови зникнуть за хвилину","ok"); after&&after(); }
+          try { await requestPurgeManager(u.email); logAction("purge_history", null, u.email+" ("+n+" розмов)"); bg.remove(); toast("Передано на виконання — розмови зникнуть, щойно задача виконається","ok"); after&&after(); }
           catch(ex){ err.textContent=ex.code||ex.message||String(ex); e.target.disabled=false; }
         }},"Стерти назавжди"))));
   document.body.appendChild(bg);
@@ -3758,7 +3808,7 @@ async function openAddCallFullscreen(){
         scriptVersion: null,
         error: null,
       });
-      toast("Додано у чергу", "ok");
+      toast("Додано. Якщо сервер вимкнений — задача чекатиме, поки він запрацює", "ok");
       location.hash = "#/calls";
     } catch(ex){
       err.textContent = ex.code || ex.message || String(ex);
@@ -3844,7 +3894,7 @@ function openCallFullscreen(callId, soft){
       const btn = e.currentTarget; btn.disabled = true;
       try {
         const ok = await startCallAnalysis(call);
-        if (ok) toast("Відправлено в чергу — сервер підхопить", "ok"); else btn.disabled = false;
+        if (ok) toast(call.transcriptReady ? "Передано на виконання. ІІ стартує за ~15 с — до цього можна скасувати" : "Передано на виконання. Якщо сервер вимкнений — задача чекатиме й виконається, щойно він запрацює", "ok"); else btn.disabled = false;
       } catch(ex){
         toast(ex.code||ex.message||String(ex), "err"); btn.disabled = false;
       }
@@ -3855,8 +3905,8 @@ function openCallFullscreen(callId, soft){
     onclick: async (e)=>{
       e.target.disabled = true; e.target.textContent = "Скасовую...";
       try {
-        await cancelCall(call);
-        toast("Скасовано", "ok");
+        const keep = await cancelCall(call);
+        toast(keep ? "Скасовано — лишився попередній аналіз (статус «Готово»)" : "Скасовано", "ok");
       } catch(ex){
         toast(ex.code||ex.message||String(ex), "err");
         e.target.disabled = false; e.target.textContent = "Скасувати";
@@ -3864,19 +3914,23 @@ function openCallFullscreen(callId, soft){
     } }, (call.status==="downloading"||call.status==="transcribing"||call.status==="analyzing") ? "Скасувати" : "Прибрати з черги") : null;
 
   const header = el("div",{class:"cv-modal__header"},
-    el("div",{style:"flex:1;min-width:0;"},
-      el("div",{style:"display:flex;align-items:center;gap:10px;flex-wrap:wrap;"},
-        el("h2",{class:"cv-modal__title"}, call ? ((call.source==="youtube_watcher" ? "YouTube ефір · " : "Картка розмови · ") + (call.client || call.title || call.videoId || "")) : "Розмова"),
-        call ? statusBadge(call.status) : null,
-        call && call.status==="skipped_short" ? el("span",{class:"muted small"}, "< 30 хв — автоматично не обробляється") : null),
+    el("div",{class:"cv-hmain"},
+      el("div",{class:"cv-hrow"},
+        el("h2",{class:"cv-modal__title"}, call ? [
+          el("span",{class:"cv-kind"}, call.source==="youtube_watcher" ? "YouTube ефір" : "Картка розмови"),
+          el("span",{class:"cv-sep"}, " · "),
+          el("span",{class:"cv-name"}, call.client || call.title || call.videoId || "")] : "Розмова"),
+        call ? (()=>{ const b = statusBadge(call.status); b.classList.add("cv-hstat"); return b; })() : null,
+        call && call.status==="skipped_short" ? el("span",{class:"muted small cv-hnote"}, "< 30 хв — автоматично не обробляється") : null),
       call ? el("div",{class:"cv-modal__sub"},
         (mgr.name||mgr.email) + " · " + fmtDate(call.startedAt) + " о " + fmtTime(call.startedAt) + (call.durationSec?" · "+fmtTimeRange(call.startedAt, call.durationSec, call.status):""))
         : null
     ),
-    (call && call.videoId) ? el("a",{href:"https://www.youtube.com/watch?v="+call.videoId, target:"_blank", rel:"noopener",
-      class:"btn btn-ghost btn-sm", style:"margin-right:8px;text-decoration:none;"}, "Відкрити на YouTube ↗") : null,
-    cancelBtn,
-    restartBtn,
+    el("div",{class:"cv-hbtns"},
+      (call && call.videoId) ? el("a",{href:"https://www.youtube.com/watch?v="+call.videoId, target:"_blank", rel:"noopener",
+        class:"btn btn-ghost btn-sm", style:"margin-right:8px;text-decoration:none;"}, "Відкрити на YouTube ↗") : null,
+      cancelBtn,
+      restartBtn),
     el("button",{class:"cv-modal__close", title:"Закрити", onclick:()=>{ location.hash = "#/calls"; }}, ICONS.x())
   );
   modal.appendChild(header);
@@ -3896,6 +3950,7 @@ function openCallFullscreen(callId, soft){
 
   ov.appendChild(modal);
   document.body.appendChild(ov);
+  try { cvAttachJump(ov, modal, body); } catch(_){}
   document.body.style.overflow = "hidden";
 
   if (!window.__cvEsc){

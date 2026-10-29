@@ -3470,7 +3470,10 @@ function renderCallDetail(root, callId){
       );
     }
     if (t==="transcript"){
-      if (!d.transcript.length) return emptyCard("Повна розшифровка");
+      if (!d.transcript.length){
+        const _pc = callsAll().find(c => c.id===callId);
+        return emptyCard("Повна розшифровка", _pc && _pc.analysisExpired ? "Розшифровку, оцінки й аналіз цього звонка видалено автоматично (старше 1 року). Картка й посилання на YouTube лишаються. Щоб проаналізувати знову, натисни «Почати аналіз»." : _pc && _pc.transcriptPurged ? "Розшифровку видалено автоматично (старше 2,5 місяця), щоб не заповнювати базу. Оцінки й аналіз збережені. Щоб отримати текст знову, натисни «Перезапустити аналіз»: розмова розшифрується заново." : null);
+      }
       const plain = d.transcript.map(l => "["+l.t+"] "+(l.r?l.r+": ":"")+l.text).join("\n");
       const scrollBox = el("div",{class:"tr-box"},
         d.transcript.map(l => el("div",{class:"tr-plain", "data-t": l.t,

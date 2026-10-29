@@ -561,6 +561,16 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 }
 @keyframes attnBgY{0%,100%{background:rgba(245,179,1,.08)}50%{background:rgba(245,179,1,.34)}}
 @keyframes attnBgR{0%,100%{background:rgba(239,68,68,.08)}50%{background:rgba(239,68,68,.30)}}
+/* Активна вкладка (білий текст на фірмовому фоні) НЕ можна заливати світлим фоном — інакше біле на білому. Мигає лише кільце. */
+@keyframes attnRingY{0%,100%{box-shadow:inset 0 0 0 2px rgba(245,179,1,.3)}50%{box-shadow:inset 0 0 0 3px var(--warn)}}
+@keyframes attnRingR{0%,100%{box-shadow:inset 0 0 0 2px rgba(239,68,68,.3)}50%{box-shadow:inset 0 0 0 3px var(--danger)}}
+@media (max-width:700px){
+  .navbar__item.is-active.has-warn,.navbar__item.is-active.has-danger{background:var(--brand);color:#fff;animation:attnRingY 2.2s ease-in-out infinite}
+  .navbar__item.is-active.has-danger{animation-name:attnRingR}
+}
+/* Шестерня й кнопки з підсвіткою: колір фону й тексту фіксовані, мигає лише кільце (на телефоні нічого не біліє) */
+.icon-btn.has-warn{background:var(--surface-2);color:var(--text);border-color:var(--warn)}
+.btn.btn-ghost.has-warn{color:var(--text)}
 @media (max-width:700px){
   /* шапка картки розмови */
   .cv-modal__header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"kind stat close" "name name name" "sub sub sub" "note note note" "btns btns btns";align-items:center;gap:0 10px;padding:12px 14px}
@@ -1479,14 +1489,20 @@ function watchAttention(user, settingsItem, gearBtn){
   _attnUnsubs.forEach(u=>{ try{u();}catch(_){} }); _attnUnsubs = [];
   const isAdminPlus = ["admin","main_admin","developer"].includes(user.role);
   if (isAdminPlus && settingsItem){
-    let limit = 10, u = {};
+    let limit = 10, u = {}, srv = "";
     const paint = ()=>{
       const spent = Math.max(Number(u.analysisCostUsd||0)+Number(u.chatCostUsd||0), Number(u.realCostUsd||0));
       const pct = limit>0 ? spent/limit*100 : 0;
-      settingsItem.classList.toggle("has-danger", pct>=100);
-      settingsItem.classList.toggle("has-warn", pct>=90 && pct<100);
-      settingsItem.title = pct>=100 ? "Ліміт ІІ вичерпано — ІІ зупинено" : pct>=90 ? "Витрачено понад 90% ліміту ІІ" : "";
+      settingsItem.classList.toggle("has-danger", pct>=100 || srv==="error");
+      settingsItem.classList.toggle("has-warn", (pct>=90 && pct<100 && srv!=="error") || (srv==="warn" && pct<100));
+      settingsItem.title = pct>=100 ? "Ліміт ІІ вичерпано — ІІ зупинено" : srv==="error" ? "Проблема на сервері — відкрий Налаштування" : pct>=90 ? "Витрачено понад 90% ліміту ІІ" : srv==="warn" ? "Сервер виправляє несправність сам" : "";
     };
+    let srvTs = null;
+    _attnUnsubs.push(db.collection("health").doc("server").onSnapshot(sn=>{
+      const x = sn.exists ? sn.data() : null; srv = x ? (x.status||"") : ""; srvTs = x && x.checkedAt && x.checkedAt.toDate ? x.checkedAt.toDate() : null;
+      if (srvTs && Date.now()-srvTs.getTime() > 3*3600000) srv = "error"; paint();
+    }, ()=>{}));
+    { const tmA = setInterval(()=>{ if (srvTs && Date.now()-srvTs.getTime() > 3*3600000 && srv!=="error"){ srv = "error"; paint(); } }, 300000); _attnUnsubs.push(()=>clearInterval(tmA)); }
     const d = new Date(); const mk = d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");
     _attnUnsubs.push(db.collection("settings").doc("ai").onSnapshot(sn=>{ const c = sn.exists ? sn.data() : {}; if (c.limitUsd) limit = Number(c.limitUsd); paint(); }, ()=>{}));
     _attnUnsubs.push(db.collection("usage").doc(mk).onSnapshot(sn=>{ u = sn.exists ? sn.data() : {}; paint(); }, ()=>{}));
@@ -2924,6 +2940,52 @@ function openPurgeModal(u, n, after){
 function renderSettings(root){
   const workerChip = el("span",{class:"chip chip--error"},"Перевіряю...");
   const workerInfo = el("div",{class:"muted small",style:"line-height:1.5;"},"");
+  const srvInfo = el("div",{style:"display:flex;flex-direction:column;gap:8px;margin-top:8px;"});
+  (function(){   // авто-обслуговування сервера: health/server (пише сам сервер раз на зміну / раз на годину)
+    let x = null, loaded = false;
+    function paintSrv(){
+      srvInfo.textContent = "";
+      const add = (bg,fg,title,cause,action)=>{
+        srvInfo.appendChild(el("div",{style:"border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;background:"+bg+";color:"+fg+";"},
+          el("div",{style:"font-weight:700;"},title),
+          cause ? el("div",{style:"margin-top:2px;"},"Причина: "+cause) : null,
+          action ? el("div",{style:"margin-top:2px;"},"Що робити: "+action) : null));
+      };
+      if (!loaded) return;
+      if (!x){ add("var(--surface-2)","var(--text-muted,inherit)","Автоперевірка сервера ще не звітувала","Служба обслуговування ще не запускалась.","Якщо так довго — RUNBOOK, сценарій 6."); return; }
+      const ts = x.checkedAt && x.checkedAt.toDate ? x.checkedAt.toDate() : null;
+      const ageH = ts ? (Date.now()-ts.getTime())/3600000 : null;
+      if (ageH!==null && ageH>3){
+        add("var(--danger-soft)","var(--danger)","Автоперевірка сервера не звітує вже "+Math.floor(ageH)+" год.",
+          "Сервер вимкнений або без інтернету, або зупинена служба обслуговування.","У панелі Contabo перевір, що VPS у стані Running; далі RUNBOOK, сценарій 6.");
+      }
+      const list = Array.isArray(x.issues) ? x.issues : [];
+      list.forEach(it=>{
+        const bad = it.level==="error";
+        add(bad?"var(--danger-soft)":"var(--warn-soft)", bad?"var(--danger)":"var(--warn)", it.title||"Проблема", it.cause, it.action);
+      });
+      if (!list.length && !(ageH!==null && ageH>3)){
+        add("var(--surface-2)","var(--text-muted,inherit)","Усе працює"+(ts ? " · перевірено "+ts.toLocaleString("uk-UA",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"}) : ""),
+          "", "");
+        if (x.lastFix) srvInfo.lastChild.appendChild(el("div",{style:"margin-top:2px;font-weight:400;"},"Сервер сам усунув несправність: "+x.lastFix));
+      }
+      if (x.stats){
+        const t = x.stats, parts = [];
+        if (t.diskPct!=null) parts.push("Диск сервера: "+t.diskPct+"% (вільно "+(t.diskFreeGb||"?")+" ГБ)");
+        if (t.audioMb!=null) parts.push("аудіо звонків: "+(t.audioMb>=1024 ? (t.audioMb/1024).toFixed(1)+" ГБ" : t.audioMb+" МБ"));
+        if (t.memFreeMb!=null) parts.push("вільна пам'ять: "+t.memFreeMb+" МБ");
+        if (t.dbPct!=null) parts.push("база Firebase: ≈"+t.dbPct+"% від 1 ГБ (оцінка, ≈"+Math.round(t.dbMb)+" МБ, "+(t.dbCalls||0)+" розмов)");
+        if (parts.length) srvInfo.appendChild(el("div",{class:"muted xs",style:"line-height:1.5;"},parts.join(" · ")));
+      }
+    }
+    try {
+      const unsub = db.collection("health").doc("server").onSnapshot(sn=>{
+        if (!document.body.contains(srvInfo)) { try{unsub();}catch(_){} return; }
+        x = sn.exists ? sn.data() : null; loaded = true; paintSrv();
+      }, ()=>{});
+      const tm = setInterval(()=>{ if (!document.body.contains(srvInfo)){ clearInterval(tm); return; } paintSrv(); }, 60000);
+    } catch(_){}
+  })();
   (function(){
     let d = null, loaded = false;
     function paint(){
@@ -2934,9 +2996,11 @@ function renderSettings(root){
       } else {
         workerChip.className = "chip chip--error"; workerChip.textContent = beat ? "Не відповідає" : "Не підключений";
       }
+      const silent = beat && ageMin > 2.5;
       workerInfo.textContent = beat
         ? "Останній сигнал: " + beat.toLocaleString("uk-UA") + " · у черзі: " + (d.queueLength ?? "—") + (d.lastError ? " · помилка: " + d.lastError : "")
-        : (loaded ? "Сигналів від сервера ще не було." : "");
+          + (silent ? ". Воркер мовчить " + Math.round(ageMin) + " хв. Можливі причини: сервер вимкнений або без інтернету, воркер зупинився чи завис, база Firebase недоступна. Що робити: RUNBOOK, сценарії 1 і 6 (спершу спробуй systemctl restart aleksa-worker)." : "")
+        : (loaded ? "Сигналів від сервера ще не було: воркер ніколи не запускався або не має доступу до бази (RUNBOOK, сценарій 1)." : "");
     }
     try {
       const unsub = db.collection("health").doc("worker").onSnapshot(sn=>{ d = sn.exists ? sn.data() : null; loaded = true; paint(); },
@@ -3136,7 +3200,7 @@ function renderSettings(root){
         el("div",{style:"display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"},
           el("span",{class:"muted small"},"Статус"),
           workerChip),
-        workerInfo),
+        workerInfo, srvInfo),
       historyCard
     )
   );

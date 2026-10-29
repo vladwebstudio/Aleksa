@@ -300,9 +300,10 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .cv-chat__quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .cv-chat__quick button{padding:5px 10px;border:1px solid var(--border);background:var(--surface);border-radius:var(--r-pill);font-size:12px;color:var(--text-muted);cursor:pointer;transition:all var(--dur) var(--ease)}
 .cv-chat__quick button:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
-.cv-chat__form{display:flex;gap:8px}
-.cv-chat__form input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-size:13.5px}
-.cv-chat__form input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);outline:none}
+.cv-chat__form{display:flex;gap:8px;align-items:flex-end}
+.cv-chat__form button{align-self:stretch;min-height:38px}
+.cv-chat__form input,.cv-chat__form textarea{flex:1;min-width:0;resize:none;font-family:inherit;line-height:1.4;max-height:140px;overflow-y:auto;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-size:13.5px}
+.cv-chat__form input:focus,.cv-chat__form textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);outline:none}
 .cv-chat__form button{background:var(--brand);color:#fff;border-radius:var(--r-sm);padding:0 14px;font-weight:500;font-size:13px;cursor:pointer}
 .cv-chat__form button:hover{background:var(--brand-hover)}
 .tr-line{display:grid;grid-template-columns:60px 24px 1fr;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);align-items:start}
@@ -1088,7 +1089,7 @@ async function createNewUser(email,password,role,actorUid,name){
   const cred = await secAuth.createUserWithEmailAndPassword(email,password);
   await db.collection("users").doc(email).set({
     email, uid: cred.user.uid, role, name: name || email.split("@")[0],
-    status:"active", promotedBy:actorUid,
+    status:"active", promotedBy:actorUid, tempPw:true,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
   try { await db.collection("userSecrets").doc(email).set({ tempPassword:password, role:role, createdAt:firebase.firestore.FieldValue.serverTimestamp(), createdBy:actorUid||null }); } catch(ex){ console.warn("tempPass:", ex); }
@@ -1490,12 +1491,24 @@ function watchAttention(user, settingsItem, gearBtn){
     _attnUnsubs.push(db.collection("settings").doc("ai").onSnapshot(sn=>{ const c = sn.exists ? sn.data() : {}; if (c.limitUsd) limit = Number(c.limitUsd); paint(); }, ()=>{}));
     _attnUnsubs.push(db.collection("usage").doc(mk).onSnapshot(sn=>{ u = sn.exists ? sn.data() : {}; paint(); }, ()=>{}));
   }
-  if (user.role === "manager" && gearBtn){
-    _attnUnsubs.push(db.collection("channels").doc(user.email).onSnapshot(sn=>{
-      const ok = sn.exists && sn.data().status === "active";
-      gearBtn.classList.toggle("has-warn", !ok);
-      gearBtn.title = ok ? "Налаштування профілю" : (sn.exists ? "Потрібно підключити YouTube знову" : "Підключи свій YouTube канал");
+  if (gearBtn){
+    // шестерня мигає, якщо: пароль досі тимчасовий (усі ролі) або YouTube не підключено (менеджер)
+    let ytBad = false, ytMsg = "", pwTemp = false;
+    const paintGear = ()=>{
+      gearBtn.classList.toggle("has-warn", ytBad || pwTemp);
+      const m = []; if (pwTemp) m.push("Зміни тимчасовий пароль"); if (ytBad) m.push(ytMsg);
+      gearBtn.title = m.length ? m.join(" · ") : "Налаштування профілю";
+    };
+    window.__myTempPw = false;
+    _attnUnsubs.push(db.collection("users").doc(String(user.email).toLowerCase()).onSnapshot(sn=>{
+      pwTemp = !!(sn.exists && sn.data().tempPw === true); window.__myTempPw = pwTemp; paintGear();
     }, ()=>{}));
+    if (user.role === "manager"){
+      _attnUnsubs.push(db.collection("channels").doc(user.email).onSnapshot(sn=>{
+        const ok = sn.exists && sn.data().status === "active";
+        ytBad = !ok; ytMsg = sn.exists ? "Потрібно підключити YouTube знову" : "Підключи свій YouTube канал"; paintGear();
+      }, ()=>{}));
+    }
   }
 }
 
@@ -1679,8 +1692,8 @@ function youTubeConnectContent(user){
 
 // Зміна свого пароля: потрібен поточний пароль (повторна перевірка), потім новий
 function passwordSection(user){
-  return el("button",{type:"button",class:"btn btn-ghost",style:"width:100%;justify-content:center;margin-bottom:14px;",
-    onclick:()=>openChangePasswordModal(user)},"🔑 Змінити пароль");
+  return el("button",{type:"button",class:"btn btn-ghost"+(window.__myTempPw?" has-warn":""),style:"width:100%;justify-content:center;margin-bottom:14px;",
+    onclick:()=>openChangePasswordModal(user)}, window.__myTempPw ? "🔑 Змінити тимчасовий пароль ⚠" : "🔑 Змінити пароль");
 }
 function openChangePasswordModal(user){
   const curI = el("input",{type:"password",placeholder:"Поточний пароль",autocomplete:"current-password"});
@@ -1700,6 +1713,7 @@ function openChangePasswordModal(user){
       await u.updatePassword(newI.value);
       logAction("change_password", null, null);
       dropTempPassword(u.email);
+      try { await db.collection("users").doc(String(u.email).toLowerCase()).update({ tempPw:false, updatedAt:firebase.firestore.FieldValue.serverTimestamp() }); } catch(_){}
       toast("Пароль змінено","ok"); bg.remove();
     } catch(ex){
       const c = ex.code||"";
@@ -3622,9 +3636,17 @@ function renderCallDetail(root, callId){
       return;
     }
   }
-  const chatInput = el("input",{type:"text",placeholder:aiAllowed() ? "Запитай ІІ про цю розмову…" : "Доступ до ІІ-чату закрито адміністратором",maxlength:"2000"});
+  const chatInput = el("textarea",{rows:"1",placeholder:aiAllowed() ? "Запитай ІІ про цю розмову…" : "Доступ до ІІ-чату закрито адміністратором",maxlength:"2000"});
   if (!aiAllowed()) chatInput.disabled = true;
-  const chatForm = el("form",{class:"cv-chat__form", onsubmit:(e)=>{ e.preventDefault(); const v = chatInput.value; if (!v.trim()) return; chatInput.value=""; sendMsg(v); }},
+  // поле росте вгору разом з текстом (до ~6 рядків), далі прокрутка; Enter — надіслати, Shift+Enter — новий рядок
+  const chatFit = ()=>{ chatInput.style.height = "auto"; chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + "px"; };
+  chatInput.addEventListener("input", chatFit);
+  chatInput.addEventListener("keydown", (e)=>{
+    if (e.key==="Enter" && !e.shiftKey && !e.isComposing && !(window.matchMedia && matchMedia("(pointer:coarse)").matches)){
+      e.preventDefault(); if (chatInput.form && chatInput.form.requestSubmit) chatInput.form.requestSubmit();
+    }
+  });
+  const chatForm = el("form",{class:"cv-chat__form", onsubmit:(e)=>{ e.preventDefault(); const v = chatInput.value; if (!v.trim()) return; chatInput.value=""; chatFit(); sendMsg(v); }},
     chatInput, (chatBtn = el("button",{type:"submit", title:"Надіслати",
       onclick:(e)=>{ const st = chatState(); if (st.busy){ e.preventDefault(); stopChat(st.targetId); } }},"→")));
   const chatQuick = el("div",{class:"cv-chat__quick"},

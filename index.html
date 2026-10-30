@@ -2286,7 +2286,8 @@ function renderAdminCallsView(root, tabs){
   };
   window.addEventListener(CALLS_CHANGED_EVT, window.__adminCallsListener);
   root.replaceChildren(
-    el("div",{class:"page-header"}, el("h1",{class:"page-title"},"Розмови")),
+    el("div",{class:"page-header"}, el("h1",{class:"page-title"},"Розмови"),
+      el("button",{class:"btn btn-primary", onclick:()=>{ window.__addCallPreset = true; location.hash = "#/calls/new"; }}, ICONS.plus(), "Додати розмову")),
     el("div",{style:"margin-bottom:var(--s-4);"}, tabs),
     el("div",{class:"filters"},
       el("input",{type:"text",placeholder:"Пошук...",class:"input input--search",value:callsState.search,
@@ -4050,11 +4051,15 @@ function renderCallDetail(root, callId){
 async function openAddCallFullscreen(){
   const actor = activeUser;
   let managers = [];
-  try { managers = (await listUsers()).filter(u => u.role===ROLES.MANAGER); } catch(ex){ console.warn(ex); }
+  try { managers = (await listUsers()).filter(u => u.role===ROLES.MANAGER || (u.role===ROLES.ADMIN && (actor.role!==ROLES.ADMIN || String(u.email).toLowerCase()===String(actor.email).toLowerCase()))); } catch(ex){ console.warn(ex); }
+  const isAdminTarget = (email)=> { const u = managers.find(m=>m.email===email); return !!(u && u.role===ROLES.ADMIN); };
+  // з вкладки «Розмови адміна» відразу підставляємо себе (адміна)
+  const presetEmail = (window.__addCallPreset && actor.role===ROLES.ADMIN) ? actor.email : null;
+  window.__addCallPreset = null;
   // якщо актор - менеджер, він тільки за себе
   const canSelectMgr = actor.role!==ROLES.MANAGER;
   // По замовчуванню менеджер не вибраний — щоб не додати випадково не тому.
-  const defaultMgrEmail = canSelectMgr ? null : actor.email;
+  const defaultMgrEmail = canSelectMgr ? presetEmail : actor.email;
 
   let ov = document.getElementById("cv-overlay"); if (ov) ov.remove();
   ov = document.createElement("div"); ov.id = "cv-overlay"; ov.className = "cv-overlay";
@@ -4093,9 +4098,9 @@ async function openAddCallFullscreen(){
 
   let mgrPicker;
   if (canSelectMgr){
-    const opts = managers.map(m => ({ value:m.email, label:m.name||m.email, name:m.name, email:m.email, photoURL:m.photoURL||null }));
+    const opts = managers.map(m => ({ value:m.email, label:(m.name||m.email)+(m.role===ROLES.ADMIN?" (Адмін)":""), name:m.name, email:m.email, photoURL:m.photoURL||null }));
     mgrPicker = dropdown({
-      value: state.mgr, options: opts, placeholder: "Виберіть менеджера",
+      value: state.mgr, options: opts, placeholder: "Виберіть менеджера або адміна",
       onChange: v => { state.mgr = v; },
       renderButton: o => el("span",{class:"dd__btn-left"}, userAva(o,"sm"), el("span",{class:"dd__btn-label"}, o.label)),
       renderItem:   o => el("div",{style:"display:flex;align-items:center;gap:10px;flex:1;"}, userAva(o,"sm"), el("span",{}, o.label)),
@@ -4115,7 +4120,7 @@ async function openAddCallFullscreen(){
     const url = (state.url||"").trim();
     // client removed — беремо назву з YouTube
     const mgr = state.mgr;
-    if (!mgr){ err.textContent = "Виберіть менеджера."; return; }
+    if (!mgr){ err.textContent = "Виберіть менеджера або адміна."; return; }
     if (!url){ err.textContent = "Заповни YouTube URL."; return; }
     const videoId = extractVideoId(url);
     if (!videoId){ err.textContent = "Невалідний YouTube URL."; return; }
@@ -4144,6 +4149,7 @@ async function openAddCallFullscreen(){
         createdBy: actor.uid,
         createdByEmail: actor.email,
         source: "manual",
+        ...(isAdminTarget(mgr) ? { kind: "admin_meeting" } : {}),
         status: "queued",
         stage: "waiting_worker",
         durationSec: 0,
@@ -4173,7 +4179,7 @@ async function openAddCallFullscreen(){
 
   const body = document.createElement("div"); body.className = "cv-modal__body cv-modal__body--plain";
   const inner = el("div",{class:"cv-form"},
-    canSelectMgr ? el("div",{class:"cv-field"}, el("label",{},"Менеджер"), mgrPicker)
+    canSelectMgr ? el("div",{class:"cv-field"}, el("label",{},"Менеджер / Адмін"), mgrPicker)
                  : el("div",{class:"muted small",style:"margin-bottom:4px;"}, "Розмова додається тобі — " + actor.email),
     el("div",{class:"cv-field"}, el("label",{},"YouTube URL *"), urlI, urlHint),
     el("div",{class:"cv-hint"},"Посилання на запис YouTube ефіру. Сервер скачає аудіо, зробить розшифровку й аналіз."),

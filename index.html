@@ -1820,7 +1820,7 @@ function openProfileSettingsModal(user){
       passwordSection(user),
       user.role==="manager" ? el("div",{class:"modal-row"}, el("label",{},"ШІ цього місяця"),
         el("div",{class:"muted small"}, (function(){ const q=aiQuota(user); return "$"+q.spent.toFixed(2)+" з $"+q.limit.toFixed(2)+" (переаналіз, ручний запуск, ШІ-чат)"; })())) : null,
-      user.role==="manager" ? youTubeConnectSection(user) : null,
+      (user.role==="manager" || user.role==="admin_plus") ? youTubeConnectSection(user) : null,
       err,
       el("div",{class:"modal-actions", style:"justify-content:space-between;"},
         el("button",{class:"btn btn-danger-outline", onclick: ()=>{ bg.remove(); logAction("logout"); setTimeout(()=>auth.signOut(), 250); } }, "Вийти з акаунту"),

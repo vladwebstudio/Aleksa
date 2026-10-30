@@ -2090,7 +2090,7 @@ function renderCalls(root){
   if (canSeeAdminCalls()){
     tabs.appendChild(el("button",{ class: callsState.tab==="admin_calls"?"is-active":"",
       onclick: () => { callsState.tab="admin_calls"; saveCallsTab(); renderCalls(root); } },
-      "Розмови адміна", el("span",{class:"tab-count"}, String(adminCallsAll().length))));
+      "Розмови адміна", el("span",{class:"tab-count","data-k":"admin_calls"}, String(adminCallsAll().length))));
     if (callsState.tab==="admin_calls"){ renderAdminCallsView(root, tabs); return; }
   }
   const search = el("input",{type:"text",placeholder:"Пошук за клієнтом...",class:"input input--search",value:callsState.search,
@@ -2233,9 +2233,27 @@ function adminCallsAll(){
 function adminCallsSig(){ return adminCallsAll().map(c => [c.id,c.status,c.progress,c.stage,tsKey(c.updatedAt)].join(":")).join("|"); }
 function renderAdminCallsView(root, tabs){
   const listWrap = el("div",{});
+  const aFrom = ()=> callsState.from ? new Date(callsState.from.getFullYear(),callsState.from.getMonth(),callsState.from.getDate(),0,0,0).getTime() : null;
+  const aTo = ()=> callsState.to ? new Date(callsState.to.getFullYear(),callsState.to.getMonth(),callsState.to.getDate(),23,59,59).getTime() : null;
+  function inFilter(c){
+    if (callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false;
+    const t = new Date(c.startedAt).getTime(), f=aFrom(), e=aTo();
+    if (f!=null && t<f) return false;
+    if (e!=null && t>e) return false;
+    return true;
+  }
   function paint(){
-    const list = adminCallsAll();
+    const fl = adminCallsAll().filter(inFilter).sort((x,y)=> new Date(y.startedAt)-new Date(x.startedAt));
+    // лічильники вкладок — за тими самими фільтрами (період/пошук), що й список
+    callTabs().forEach(t => { const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
+      if (n) n.textContent = String(callsAll().filter(c=>{ if(callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false; const tt=new Date(c.startedAt).getTime(), f=aFrom(), e=aTo(); if(f!=null&&tt<f) return false; if(e!=null&&tt>e) return false; return true; }).filter(t.match).length); });
+    const an = tabs.querySelector('.tab-count[data-k="admin_calls"]'); if (an) an.textContent = String(fl.length);
+    const list = fl;
     listWrap.replaceChildren();
+    if (!list.length && adminCallsAll().length){
+      listWrap.appendChild(el("div",{class:"calls-empty"}, "Нічого не знайдено за заданими фільтрами."));
+      return;
+    }
     if (!list.length){
       listWrap.appendChild(el("div",{class:"card",style:"padding:20px;color:var(--text-muted);line-height:1.6;"},
         "Тут з'являться Zoom-розмови адміна. Підключи YouTube-канал (профіль → «📺 YouTube канал») — далі беруться лише НОВІ ефіри, старі не підтягуються."));
@@ -2271,6 +2289,12 @@ function renderAdminCallsView(root, tabs){
   root.replaceChildren(
     el("div",{class:"page-header"}, el("h1",{class:"page-title"},"Розмови")),
     el("div",{style:"margin-bottom:var(--s-4);"}, tabs),
+    el("div",{class:"filters"},
+      el("input",{type:"text",placeholder:"Пошук...",class:"input input--search",value:callsState.search,
+        oninput:(e)=>{ callsState.search = e.target.value.toLowerCase(); paint(); }}),
+      dateRangeBtn({ start: callsState.from, end: callsState.to,
+        defaultRange: () => { const d=new Date(); return { start:new Date(d.getFullYear(), d.getMonth(), 1), end:d }; },
+        onChange: ({start,end}) => { callsState.from=start; callsState.to=end; paint(); } })),
     listWrap);
   paint();
 }

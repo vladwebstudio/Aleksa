@@ -2972,7 +2972,7 @@ function renderSettings(root){
       if (x.stats){
         const t = x.stats, parts = [];
         if (t.diskPct!=null) parts.push("Диск сервера: "+t.diskPct+"% (вільно "+(t.diskFreeGb||"?")+" ГБ)");
-        if (t.audioMb!=null) parts.push("аудіо звонків: "+(t.audioMb>=1024 ? (t.audioMb/1024).toFixed(1)+" ГБ" : t.audioMb+" МБ"));
+        if (t.audioMb!=null) parts.push("аудіо дзвінків: "+(t.audioMb>=1024 ? (t.audioMb/1024).toFixed(1)+" ГБ" : t.audioMb+" МБ"));
         if (t.memFreeMb!=null) parts.push("вільна пам'ять: "+t.memFreeMb+" МБ");
         if (t.dbPct!=null) parts.push("база Firebase: ≈"+t.dbPct+"% від 1 ГБ (оцінка, ≈"+Math.round(t.dbMb)+" МБ, "+(t.dbCalls||0)+" розмов)");
         if (parts.length) srvInfo.appendChild(el("div",{class:"muted xs",style:"line-height:1.5;"},parts.join(" · ")));
@@ -3472,7 +3472,7 @@ function renderCallDetail(root, callId){
     if (t==="transcript"){
       if (!d.transcript.length){
         const _pc = callsAll().find(c => c.id===callId);
-        return emptyCard("Повна розшифровка", _pc && _pc.analysisExpired ? "Розшифровку, оцінки й аналіз цього звонка видалено автоматично (старше 1 року). Картка й посилання на YouTube лишаються. Щоб проаналізувати знову, натисни «Почати аналіз»." : _pc && _pc.transcriptPurged ? "Розшифровку видалено автоматично (старше 2,5 місяця), щоб не заповнювати базу. Оцінки й аналіз збережені. Щоб отримати текст знову, натисни «Перезапустити аналіз»: розмова розшифрується заново." : null);
+        return emptyCard("Повна розшифровка", _pc && _pc.analysisExpired ? "Розшифровку, оцінки й аналіз цього дзвінка видалено автоматично (старше 1 року). Картка й посилання на YouTube лишаються. Щоб проаналізувати знову, натисни «Почати аналіз»." : _pc && _pc.transcriptPurged ? "Розшифровку видалено автоматично (старше 2,5 місяця), щоб не заповнювати базу. Оцінки й аналіз збережені. Щоб отримати текст знову, натисни «Перезапустити аналіз»: розмова розшифрується заново." : null);
       }
       const plain = d.transcript.map(l => "["+l.t+"] "+(l.r?l.r+": ":"")+l.text).join("\n");
       const scrollBox = el("div",{class:"tr-box"},

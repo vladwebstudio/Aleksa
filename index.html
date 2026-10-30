@@ -1176,8 +1176,8 @@ async function refreshUserCache(force){
   try { window.__users = await listUsers(); try { sessionStorage.setItem(K, JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){} }
   catch(ex){ console.warn("userCache:", ex); window.__users = []; }
 }
-// «Розмови адміна» бачать адміни (Адмін, Головний адмін, Розробник)
-function canSeeAdminCalls(){ return !!(activeUser && [ROLES.DEVELOPER, ROLES.MAIN_ADMIN, ROLES.ADMIN].includes(activeUser.role)); }
+// «Розмови адміна» бачить лише роль «Адмін»
+function canSeeAdminCalls(){ return !!(activeUser && activeUser.role===ROLES.ADMIN); }
 function usersAll(){
   const all = window.__users || [];
   if (activeUser && activeUser.role===ROLES.DEVELOPER) return all;
@@ -2223,7 +2223,7 @@ function renderCalls(root){
  * ======================================================== */
 function adminCallsAll(){
   const all = window.__adminCalls || [];
-  if (activeUser && activeUser.role!==ROLES.DEVELOPER){
+  if (activeUser && activeUser.role===ROLES.ADMIN){
     const me = String(activeUser.email||"").toLowerCase();
     return all.filter(c => String(c.managerEmail||"").toLowerCase()===me);
   }
@@ -2723,7 +2723,7 @@ async function renderScripts(root){
 
   const header = el("div",{class:"page-header"},
     el("h1",{class:"page-title"},"Скрипти"),
-    canSeeAdminCalls() ? el("button",{class:"btn btn-ghost btn-sm",style:"margin-left:auto;",onclick:()=>openAdminScriptModal()},"Скрипт адміна") : null);
+    (activeUser && [ROLES.DEVELOPER, ROLES.MAIN_ADMIN, ROLES.ADMIN].includes(activeUser.role)) ? el("button",{class:"btn btn-ghost btn-sm",style:"margin-left:auto;",onclick:()=>openAdminScriptModal()},"Скрипт адміна") : null);
   root.replaceChildren(header, el("div",{class:"card loading"},"Завантаження…"));
 
   // додаткові продукти, які додав адмін (scripts/{key}.custom = true)

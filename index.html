@@ -218,6 +218,9 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .cv-modal__body{flex:1;overflow:hidden;padding:20px 24px 24px;background:var(--bg);display:flex;min-height:0}
 .cv-modal__body--plain{background:var(--surface);overflow-y:auto;display:block;padding:28px 32px 32px}
 .cv-modal--sm{max-width:520px;height:auto;max-height:calc(100vh - 60px);margin:30px auto;align-self:center}
+.cv-modal--sm .cv-modal__body--plain{min-height:430px}
+.cv-modal--sm .dd__pop{max-height:230px;overscroll-behavior:contain}
+.cv-modal--sm .dd{max-width:100%}
 .cv-form{max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
 .cv-field{display:flex;flex-direction:column;gap:8px}
 .cv-field > label{font-size:12.5px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
@@ -368,6 +371,16 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
 .input--search{min-width:260px;padding-left:38px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7390' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><path d='M21 21l-4.3-4.3'/></svg>");background-repeat:no-repeat;background-position:12px center;background-size:16px}
 
+/* акуратні скролбари у кольорах теми (світла/темна) */
+:root{--sb-thumb:rgba(100,116,139,.40);--sb-thumb-h:rgba(100,116,139,.65)}
+:root[data-theme="dark"]{--sb-thumb:rgba(160,168,198,.28);--sb-thumb-h:rgba(160,168,198,.5)}
+*{scrollbar-width:thin;scrollbar-color:var(--sb-thumb) transparent}
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-h);background-clip:content-box;border:2px solid transparent}
+*::-webkit-scrollbar-corner{background:transparent}
+.dd__pop{scrollbar-gutter:stable}
 /* custom styled dropdown */
 .dd{position:relative}
 .dd__btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:500;cursor:pointer;transition:all var(--dur) var(--ease);min-width:180px;justify-content:space-between}
@@ -900,6 +913,16 @@ function dropdown({ value, options, onChange, placeholder="Виберіть", re
     );
     wrap.appendChild(pop);
     btn.classList.add("is-open");
+    try {   // не вміщується знизу (у вікні/внизу екрана) — відкриваємо вгору; висоту обмежуємо доступним місцем
+      const r = pop.getBoundingClientRect(), b = btn.getBoundingClientRect(), vh = window.innerHeight;
+      const clip = btn.closest(".cv-modal__body, .modal");
+      const lim = clip ? Math.min(vh, clip.getBoundingClientRect().bottom) : vh;
+      if (r.bottom > lim - 8){
+        const below = lim - b.bottom - 14, above = b.top - 14;
+        if (above > below){ pop.style.top="auto"; pop.style.bottom="calc(100% + 6px)"; pop.style.maxHeight = Math.max(140, Math.min(320, above))+"px"; }
+        else pop.style.maxHeight = Math.max(140, below)+"px";
+      }
+    } catch(_){}
     outside = (ev)=>{ if (pop && !pop.contains(ev.target) && !btn.contains(ev.target)) close(); };
     setTimeout(()=>document.addEventListener("mousedown", outside, true), 0);
   }
@@ -1176,8 +1199,8 @@ async function refreshUserCache(force){
   try { window.__users = await listUsers(); try { sessionStorage.setItem(K, JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){} }
   catch(ex){ console.warn("userCache:", ex); window.__users = []; }
 }
-// «Розмови адміна» бачить лише роль «Адмін»
-function canSeeAdminCalls(){ return !!(activeUser && activeUser.role===ROLES.ADMIN); }
+// «Розмови адміна» бачать Адмін і вище (Адмін — лише свої, Головний адмін і Розробник — усі)
+function canSeeAdminCalls(){ return !!(activeUser && [ROLES.DEVELOPER, ROLES.MAIN_ADMIN, ROLES.ADMIN].includes(activeUser.role)); }
 function usersAll(){
   const all = window.__users || [];
   if (activeUser && activeUser.role===ROLES.DEVELOPER) return all;
@@ -1819,7 +1842,7 @@ function openProfileSettingsModal(user){
       passwordSection(user),
       user.role==="manager" ? el("div",{class:"modal-row"}, el("label",{},"ШІ цього місяця"),
         el("div",{class:"muted small"}, (function(){ const q=aiQuota(user); return "$"+q.spent.toFixed(2)+" з $"+q.limit.toFixed(2)+" (переаналіз, ручний запуск, ШІ-чат)"; })())) : null,
-      (user.role==="manager" || canSeeAdminCalls()) ? youTubeConnectSection(user) : null,
+      (user.role==="manager" || user.role==="admin") ? youTubeConnectSection(user) : null,
       err,
       el("div",{class:"modal-actions", style:"justify-content:space-between;"},
         el("button",{class:"btn btn-danger-outline", onclick: ()=>{ bg.remove(); logAction("logout"); setTimeout(()=>auth.signOut(), 250); } }, "Вийти з акаунту"),

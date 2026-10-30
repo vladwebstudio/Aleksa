@@ -1873,7 +1873,8 @@ function renderOverview(root){
   const period = getOverviewPeriod();
   const calls  = overviewFiltered(period);
   const done   = calls.filter(c=>c.status==="done" && !c.isTest);
-  const inWork = calls.filter(CALL_TABS.find(t=>t.key==="working").match);
+  // «В обробці» не залежить від вибраного періоду: розмова в роботі видна завжди (як у вкладці «В роботі»)
+  const inWork = callsAll().filter(c=>!c.isTest).filter(CALL_TABS.find(t=>t.key==="working").match);
   const avg    = done.length ? Math.round(done.reduce((s,c)=>s+(c.score||0),0)/done.length) : 0;
   const periodLabel = (PERIODS.find(p=>p.key===period)||PERIODS[0]).label.toLowerCase();
 

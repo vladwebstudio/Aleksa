@@ -716,14 +716,13 @@ const YOUTUBE_OAUTH = {
   AUTH_URL: "https://accounts.google.com/o/oauth2/v2/auth",
 };
 
-const ROLES = { DEVELOPER:"developer", MAIN_ADMIN:"main_admin", ADMIN:"admin", ADMIN_PLUS:"admin_plus", MANAGER:"manager" };
-const ROLE_RANK = { developer:100, main_admin:80, admin:50, admin_plus:50, manager:10 };
-const ROLE_LABEL_UK = { developer:"Розробник", main_admin:"Головний адмін", admin:"Адмін", admin_plus:"Адмін+ (тест)", manager:"Менеджер" };
+const ROLES = { DEVELOPER:"developer", MAIN_ADMIN:"main_admin", ADMIN:"admin", MANAGER:"manager" };
+const ROLE_RANK = { developer:100, main_admin:80, admin:50, manager:10 };
+const ROLE_LABEL_UK = { developer:"Розробник", main_admin:"Головний адмін", admin:"Адмін", manager:"Менеджер" };
 // Налаштування — тільки адмінам. Решті — без (включно з менеджером)
 const MENU_BY_ROLE = {
   manager:["overview","calls","progress"],
   admin:["overview","calls","progress","scripts","users","settings"],
-  admin_plus:["overview","calls","progress","scripts","users","settings"],
   main_admin:["overview","calls","progress","scripts","users","settings"],
   developer:["overview","calls","progress","scripts","users","settings"],
 };
@@ -749,9 +748,9 @@ function aiQuota(u){
 function aiDeniedMsg(){ return (activeUser && activeUser.aiBlocked) ? "Доступ до ШІ закрито адміністратором" : "Місячний ліміт ШІ вичерпано — попроси адміна збільшити ліміт"; }
 function assignableRolesFor(actor){
   if (!actor) return [];
-  if (actor.role===ROLES.DEVELOPER)  return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.ADMIN_PLUS, ROLES.MANAGER];
+  if (actor.role===ROLES.DEVELOPER)  return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.MANAGER];
   if (actor.role===ROLES.MAIN_ADMIN) return [ROLES.MAIN_ADMIN, ROLES.ADMIN, ROLES.MANAGER];
-  if (actor.role===ROLES.ADMIN || actor.role===ROLES.ADMIN_PLUS) return [ROLES.ADMIN, ROLES.MANAGER];
+  if (actor.role===ROLES.ADMIN) return [ROLES.ADMIN, ROLES.MANAGER];
   return [];
 }
 
@@ -1177,13 +1176,13 @@ async function refreshUserCache(force){
   try { window.__users = await listUsers(); try { sessionStorage.setItem(K, JSON.stringify({ t:Date.now(), u:window.__users })); } catch(_){} }
   catch(ex){ console.warn("userCache:", ex); window.__users = []; }
 }
-// Нова роль «Адмін+ (тест)» поки видима лише розробнику (і самому користувачу цієї ролі)
-function canSeeAdminCalls(){ return !!(activeUser && (activeUser.role===ROLES.DEVELOPER || activeUser.role===ROLES.ADMIN_PLUS)); }
+// «Розмови адміна» бачать адміни (Адмін, Головний адмін, Розробник)
+function canSeeAdminCalls(){ return !!(activeUser && [ROLES.DEVELOPER, ROLES.MAIN_ADMIN, ROLES.ADMIN].includes(activeUser.role)); }
 function usersAll(){
   const all = window.__users || [];
   if (activeUser && activeUser.role===ROLES.DEVELOPER) return all;
   const me = activeUser ? String(activeUser.email||"").toLowerCase() : "";
-  return all.filter(u => u.role!==ROLES.ADMIN_PLUS || String(u.email||"").toLowerCase()===me);
+  return all;
 }
 function managersList(){ return usersAll().filter(u => u.role===ROLES.MANAGER); }
 function userByEmail(email){ return usersAll().find(u => u.email===email) || { email, name: email ? email.split("@")[0] : "" }; }
@@ -1198,7 +1197,7 @@ const CALLS_CHANGED_EVT = "alexa-calls-changed";
 function startCallsSubscription(user){
   if (window.__callsSub) return;
   if (!user || !user.email) return;
-  const isAdminPlus = ["developer","main_admin","admin","admin_plus"].includes(user.role);
+  const isAdminPlus = ["developer","main_admin","admin"].includes(user.role);
   try {
     const base = db.collection("calls");
     const query = isAdminPlus
@@ -1208,7 +1207,7 @@ function startCallsSubscription(user){
       window.__callsLoaded = true;
       const __all = snap.docs.map(d => { const o = Object.assign({ id: d.id }, d.data()); if (o.status==="canceled" && o.stage==="revert_to_done") o.status = "done"; return o; })
         .sort((a,b) => String(b.startedAt||"").localeCompare(String(a.startedAt||"")));
-      // «Розмови адміна» (роль Адмін+) живуть окремо і не потрапляють у звичайні списки, статистику й лічильники
+      // «Розмови адміна» (для адмінів) живуть окремо і не потрапляють у звичайні списки, статистику й лічильники
       window.__adminCalls = __all.filter(c => c.kind==="admin_meeting");
       window.__calls = __all.filter(c => c.kind!=="admin_meeting");
       window.dispatchEvent(new Event(CALLS_CHANGED_EVT));
@@ -1528,7 +1527,7 @@ const MENU_META = {
 let _attnUnsubs = [];
 function watchAttention(user, settingsItem, gearBtn){
   _attnUnsubs.forEach(u=>{ try{u();}catch(_){} }); _attnUnsubs = [];
-  const isAdminPlus = ["admin","admin_plus","main_admin","developer"].includes(user.role);
+  const isAdminPlus = ["admin","main_admin","developer"].includes(user.role);
   if (isAdminPlus && settingsItem){
     let limit = 10, u = {}, srv = "";
     const paint = ()=>{
@@ -1820,7 +1819,7 @@ function openProfileSettingsModal(user){
       passwordSection(user),
       user.role==="manager" ? el("div",{class:"modal-row"}, el("label",{},"ШІ цього місяця"),
         el("div",{class:"muted small"}, (function(){ const q=aiQuota(user); return "$"+q.spent.toFixed(2)+" з $"+q.limit.toFixed(2)+" (переаналіз, ручний запуск, ШІ-чат)"; })())) : null,
-      (user.role==="manager" || user.role==="admin_plus") ? youTubeConnectSection(user) : null,
+      (user.role==="manager" || canSeeAdminCalls()) ? youTubeConnectSection(user) : null,
       err,
       el("div",{class:"modal-actions", style:"justify-content:space-between;"},
         el("button",{class:"btn btn-danger-outline", onclick: ()=>{ bg.remove(); logAction("logout"); setTimeout(()=>auth.signOut(), 250); } }, "Вийти з акаунту"),
@@ -2220,11 +2219,11 @@ function renderCalls(root){
 
 
 /* ========================================================
- *  Розмови адміна (роль «Адмін+ (тест)») — Zoom-зустрічі адміна з командою, без оцінювання
+ *  Розмови адміна (для адмінів) — Zoom-зустрічі адміна з командою, без оцінювання
  * ======================================================== */
 function adminCallsAll(){
   const all = window.__adminCalls || [];
-  if (activeUser && activeUser.role===ROLES.ADMIN_PLUS){
+  if (activeUser && activeUser.role!==ROLES.DEVELOPER){
     const me = String(activeUser.email||"").toLowerCase();
     return all.filter(c => String(c.managerEmail||"").toLowerCase()===me);
   }
@@ -2720,7 +2719,7 @@ function openAddProductModal(root){
 
 async function renderScripts(root){
   const actor = activeUser;
-  const canEdit = actor && (actor.role===ROLES.DEVELOPER || actor.role===ROLES.MAIN_ADMIN || actor.role===ROLES.ADMIN || actor.role===ROLES.ADMIN_PLUS);
+  const canEdit = actor && (actor.role===ROLES.DEVELOPER || actor.role===ROLES.MAIN_ADMIN || actor.role===ROLES.ADMIN);
 
   const header = el("div",{class:"page-header"},
     el("h1",{class:"page-title"},"Скрипти"),
@@ -2916,7 +2915,7 @@ async function renderScripts(root){
 /* ========================================================
  *  Користувачі
  * ======================================================== */
-const ROLE_CHIP_CLASS = { developer:"chip--analysis", main_admin:"chip--trans", admin:"chip--done", admin_plus:"chip--done", manager:"" };
+const ROLE_CHIP_CLASS = { developer:"chip--analysis", main_admin:"chip--trans", admin:"chip--done", manager:"" };
 
 // Фото: файл (перетягни або вибери) стискається до 256px і зберігається в профілі; можна й URL
 function fileToAvatar(file){
@@ -3035,7 +3034,7 @@ function openChangeRoleModal(actor, user, afterSave){
 async function renderUsers(root){
   root.replaceChildren(el("h1",{class:"page-title"},"Користувачі"), el("div",{class:"card loading"},"Завантаження…"));
   let actor, users;
-  try { actor = (typeof activeUser!=="undefined" && activeUser && activeUser.uid===(auth.currentUser&&auth.currentUser.uid)) ? activeUser : await getCurrentUser(); await refreshUserCache(); users = usersAll().slice(); if (actor && (actor.role===ROLES.ADMIN||actor.role===ROLES.ADMIN_PLUS||actor.role===ROLES.MAIN_ADMIN||actor.role===ROLES.DEVELOPER)) await loadTempPasswords(); }
+  try { actor = (typeof activeUser!=="undefined" && activeUser && activeUser.uid===(auth.currentUser&&auth.currentUser.uid)) ? activeUser : await getCurrentUser(); await refreshUserCache(); users = usersAll().slice(); if (actor && (actor.role===ROLES.ADMIN||actor.role===ROLES.MAIN_ADMIN||actor.role===ROLES.DEVELOPER)) await loadTempPasswords(); }
   catch (ex){
     root.replaceChildren(
       el("h1",{class:"page-title"},"Користувачі"),
@@ -4425,7 +4424,7 @@ auth.onAuthStateChanged(async (u)=>{
   const fresh=document.createElement("div"); fresh.id="app";
   const old=document.getElementById("app"); if (old) old.replaceWith(fresh); else document.body.appendChild(fresh);
   if (!u){ activeUser=null; stopCallsSubscription(); stopScriptsSubscription(); stopUsersWatch(); renderLogin(fresh); return; }
-  try { activeUser = await getCurrentUser(); if (activeUser){ startUsersWatch(activeUser.role===ROLES.ADMIN||activeUser.role===ROLES.ADMIN_PLUS||activeUser.role===ROLES.MAIN_ADMIN||activeUser.role===ROLES.DEVELOPER); } await refreshUserCache(); startCallsSubscription(activeUser);
+  try { activeUser = await getCurrentUser(); if (activeUser){ startUsersWatch(activeUser.role===ROLES.ADMIN||activeUser.role===ROLES.MAIN_ADMIN||activeUser.role===ROLES.DEVELOPER); } await refreshUserCache(); startCallsSubscription(activeUser);
     // «Зайшов» пишемо лише коли людина справді ввела пароль на формі входу (а не при кожному відкритті сайту з уже збереженим входом)
     if (activeUser){ try { if (sessionStorage.getItem("alexa_real_login")==="1"){ sessionStorage.removeItem("alexa_real_login"); logAction("login"); } } catch(_){} } }
   catch(ex){

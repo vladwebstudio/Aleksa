@@ -1023,6 +1023,8 @@ async function listUsers(){
   return mapUserDocs(qs.docs);
 }
 // Паролі-підказки: правила дозволяють лише запит з фільтром ролі (адмін — менеджери, головний адмін — менеджери й адміни, розробник — усі)
+// Тимчасовий пароль бачить лише той, хто створив користувача (старі записи без createdBy лишаються видимими)
+function _myTempPwOk(x){ const me=(firebase.auth().currentUser||{}).uid; return !x.createdBy || x.createdBy===me; }
 function secretsQuery(){
   const c = db.collection("userSecrets");
   const r = activeUser && activeUser.role;
@@ -1052,7 +1054,7 @@ function startUsersWatch(withSecrets){
     let f2 = true;
     w.sready = new Promise(r2 => {
       w.unsub.push(secretsQuery().onSnapshot(snap => {
-        const m = {}; snap.forEach(d => { const x = d.data(); if (x.tempPassword) m[d.id] = x.tempPassword; });
+        const m = {}; snap.forEach(d => { const x = d.data(); if (x.tempPassword && _myTempPwOk(x)) m[d.id] = x.tempPassword; });
         window.__tmpPass = m;
         if (f2){ f2 = false; r2(); } else window.dispatchEvent(new Event(USERS_CHANGED_EVT));
       }, ex => { console.warn("secretsWatch:", ex); window.__tmpPass = {}; if (f2){ f2 = false; r2(); } }));
@@ -1115,7 +1117,7 @@ window.__tmpPass = null;
 async function loadTempPasswords(force){
   if (window.__usersWatch && window.__usersWatch.sready){ await window.__usersWatch.sready; return window.__tmpPass || {}; }
   const m={};   // паролі НЕ кешуємо в sessionStorage — лише в пам'яті сторінки
-  try { const qs=await secretsQuery().get(); qs.forEach(d=>{ const x=d.data(); if (x.tempPassword) m[d.id]=x.tempPassword; }); }
+  try { const qs=await secretsQuery().get(); qs.forEach(d=>{ const x=d.data(); if (x.tempPassword && _myTempPwOk(x)) m[d.id]=x.tempPassword; }); }
   catch(ex){ console.warn("tmpPass:", ex); }
   window.__tmpPass=m;
   return m;

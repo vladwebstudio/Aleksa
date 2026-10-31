@@ -3815,8 +3815,8 @@ function renderCallDetail(root, callId){
         el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Коротко"), el("div",{class:"cv-summary__p",style:"white-space:pre-wrap;"}, ...tcLinks(a.summary || "—"))),
         el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Наступні дії"),
           list(a.actions, x => el("li",{style:"margin-bottom:4px;"}, x.who ? el("b",{},x.who+": ") : null, x.text, x.due ? el("span",{class:"muted small"}," · до "+x.due) : null, ...tsB(x)))),
-        el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"До чого домовились"),
-          list(a.decisions, x => el("li",{style:"margin-bottom:4px;"}, x.text, ...tsB(x)))),
+        (a.decisions && a.decisions.length) ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Спільні рішення"),
+          list(a.decisions, x => el("li",{style:"margin-bottom:4px;"}, x.text, ...tsB(x)))) : null,
         (a.remember && a.remember.length) ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Не забути"),
           list(a.remember, x => el("li",{style:"margin-bottom:4px;"}, x.text, ...tsB(x)))) : null);
     }

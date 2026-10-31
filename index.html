@@ -65,6 +65,7 @@ body{font-family:var(--font-sans);font-size:var(--fs-md);color:var(--text);backg
 button{font:inherit;cursor:pointer;border:0;background:transparent}
 a{color:inherit;text-decoration:none}
 input,select,textarea{font:inherit;outline:none}
+textarea{resize:none;overflow-y:auto}
 svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 
 .app-shell{max-width:var(--page-max);margin:0 auto;padding:0 var(--s-6) var(--s-10)}
@@ -433,6 +434,8 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .cal__quick button:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
 
 /* modal */
+body.is-modal-open{overflow:hidden}
+.modal-bg,.modal,.cv-overlay,.cv-modal,.cv-modal *{overscroll-behavior:contain}
 .modal-bg{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px}
 .modal{background:var(--surface);border-radius:var(--r-lg);padding:24px;width:100%;max-width:460px;box-shadow:var(--sh-lg);max-height:calc(100vh - 40px);overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
 .modal *{min-width:0;overflow-wrap:anywhere}
@@ -1427,6 +1430,38 @@ function confirmModal(title, text, okLabel){
     document.body.appendChild(bg);
   });
 }
+// Вікна не закриваються, коли виділяєш текст і відпускаєш мишу на темному тлі: закриття лише якщо і натиснули, і відпустили саме на тлі
+(function(){
+  let md = null;
+  document.addEventListener("mousedown", e => { md = e.target; }, true);
+  document.addEventListener("touchstart", e => { md = e.target; }, {capture:true, passive:true});
+  // поки відкрито вікно — сторінка під ним не гортається (колесо над вікном без прокрутки гортало сайт)
+  const syncLock = () => document.body.classList.toggle("is-modal-open", !!document.querySelector(".modal-bg, .cv-overlay"));
+  new MutationObserver(syncLock).observe(document.body, {childList:true});
+  document.addEventListener("wheel", e => {
+    const bg = e.target && e.target.closest && e.target.closest(".modal-bg, .cv-overlay");
+    if (!bg) return;
+    // шукаємо предка, який справді може гортатись у цьому напрямку; якщо такого немає — гасимо подію
+    let n = e.target;
+    while (n && n !== document.body){
+      if (n.scrollHeight > n.clientHeight + 1){
+        const oy = getComputedStyle(n).overflowY;
+        if (oy === "auto" || oy === "scroll"){
+          if ((e.deltaY < 0 && n.scrollTop > 0) || (e.deltaY > 0 && n.scrollTop + n.clientHeight < n.scrollHeight - 1)) return;
+        }
+      }
+      if (n === bg) break;
+      n = n.parentNode;
+    }
+    e.preventDefault();
+  }, {passive:false, capture:true});
+  document.addEventListener("click", e => {
+    const t = e.target;
+    if (t && t.classList && (t.classList.contains("modal-bg") || t.classList.contains("cv-overlay")) && md !== t){
+      e.stopPropagation(); e.stopImmediatePropagation();
+    }
+  }, true);
+})();
 // Запуск / перезапуск аналізу вручну — завжди з підтвердженням і записом у журнал
 // чи відкритий поточному користувачу доступ до ШІ (адмін може закрити його окремому менеджеру)
 function aiAllowed(){ return !(activeUser && activeUser.role===ROLES.MANAGER && (activeUser.aiBlocked || aiQuota(activeUser).over)); }
@@ -3327,11 +3362,11 @@ function renderSettings(root){
         const log = Array.isArray(x.log) ? x.log.slice().reverse() : [];
         const fmtT = iso => { try { return new Date(iso).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); } catch(_){ return iso; } };
         const openHist = ()=>{
-          const body = el("div",{style:"display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;margin:10px 0 14px;padding-right:4px;"});
+          const body = el("div",{style:"display:flex;flex-direction:column;gap:8px;max-height:min(60vh,340px);overflow-y:auto;margin:10px 0 14px;padding-right:6px;"});
           if (!log.length) body.appendChild(el("div",{class:"muted small"},"Подій поки не було — запис почнеться з наступної несправності."));
           log.forEach(e => {
             const col = e.kind==="end" ? "var(--success)" : (e.level==="error" ? "var(--danger)" : "var(--warn)");
-            body.appendChild(el("div",{style:"display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;"},
+            body.appendChild(el("div",{style:"flex:none;display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.45;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);"},
               el("span",{style:"flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px;background:"+col+";"}),
               el("div",{style:"min-width:0;"},
                 el("div",{}, el("span",{class:"muted xs"}, fmtT(e.ts)+" · "), e.kind==="end" ? "Усунено: "+e.title : e.title),

@@ -434,10 +434,9 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .cal__quick button:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
 
 /* modal */
-body.is-modal-open{overflow:hidden}
 .modal-bg,.modal,.cv-overlay,.cv-modal,.cv-modal *{overscroll-behavior:contain}
-.modal-bg{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px}
-.modal{background:var(--surface);border-radius:var(--r-lg);padding:24px;width:100%;max-width:460px;box-shadow:var(--sh-lg);max-height:calc(100vh - 40px);overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;background:var(--overlay);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px;box-sizing:border-box;overflow-y:auto}
+.modal{background:var(--surface);border-radius:var(--r-lg);padding:24px;width:100%;max-width:460px;box-shadow:var(--sh-lg);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overflow-x:hidden;box-sizing:border-box;margin:auto;flex:none}
 .modal *{min-width:0;overflow-wrap:anywhere}
 .x-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:18px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all var(--dur) var(--ease)}
 .x-close:hover{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
@@ -482,6 +481,89 @@ body.is-modal-open{overflow:hidden}
 
 .loading{color:var(--text-muted);padding:var(--s-5);text-align:center}
 .row-disabled{opacity:.55}
+/* Прогрес: карта команди / особистий вигляд */
+.pm-ins{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-4);margin-bottom:var(--s-4)}
+.pm-ins--two{grid-template-columns:repeat(2,1fr)}
+.pm-in{text-align:left;min-width:0;border-left:3px solid var(--border-strong)}
+.pm-in--ok{border-left-color:var(--success)}.pm-in--mid{border-left-color:var(--warn)}.pm-in--low{border-left-color:var(--danger)}
+.pm-in.is-click{cursor:pointer;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.pm-in.is-click:hover{transform:translateY(-1px)}
+.pm-in.is-click:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.pm-in__t{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.pm-in__v{font-weight:700;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.pm-in__d{margin-top:4px;font-size:12.5px;line-height:1.45;color:var(--text-muted)}
+.pm-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;color:var(--text-muted);margin:-6px 0 12px}
+.pm-legend span{display:inline-flex;align-items:center;gap:6px}
+.pm-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.pm-scroll{overflow-x:auto;padding-bottom:6px;margin:0;padding:0 0 6px;position:relative}
+.pm-tbl{display:grid;gap:4px;grid-template-columns:minmax(150px,1.5fr) 44px 52px repeat(var(--n),minmax(66px,1fr));min-width:calc(150px + 44px + 52px + var(--n) * 70px + 20px);align-items:stretch}
+.pm-h{font:inherit;font-size:11.5px;line-height:1.25;color:var(--text-muted);text-align:center;padding:4px 3px 8px;background:none;border:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;overflow-wrap:anywhere}
+.pm-h:first-child{justify-content:flex-start;padding-left:6px;position:sticky;left:0;background:var(--surface);z-index:2;box-shadow:6px 0 0 var(--surface)}
+span.pm-h{cursor:default}
+.pm-h:nth-child(2),.pm-h:nth-child(3){white-space:nowrap;overflow-wrap:normal;padding-left:0;padding-right:0}
+.pm-h:hover,.pm-h.is-on{color:var(--text)}
+.pm-h.is-on{font-weight:700}
+.pm-nm{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:6px 0 0 var(--surface);display:flex;align-items:center;gap:8px;padding:2px 6px 2px 2px;min-height:38px;font:inherit;color:var(--text);border:0;text-align:left;border-radius:0;min-width:0}
+button.pm-nm{cursor:pointer}
+button.pm-nm:hover .pm-nm__t{color:var(--brand)}
+.pm-nm__t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:500}
+.pm-team .pm-nm__t,.pm-nm.pm-team{font-weight:700}
+.pm-n{display:flex;align-items:center;justify-content:center;font-size:12.5px;color:var(--text-muted)}
+.pm-c{height:38px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:0;font:inherit;font-size:13px;font-weight:700;color:var(--text);background:var(--surface-2)}
+button.pm-c{cursor:pointer;transition:box-shadow var(--dur) var(--ease)}
+button.pm-c:hover,button.pm-c:focus-visible{box-shadow:inset 0 0 0 2px var(--brand);outline:none}
+.pm-ok{background:var(--success-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--success) 40%,transparent)}
+.pm-mid{background:var(--warn-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 45%,transparent)}
+.pm-low{background:var(--danger-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--danger) 40%,transparent)}
+button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 0 2px var(--brand)}
+.pm-na{background:transparent;font-weight:400;color:var(--text-muted)}
+.pm-dim{opacity:.6}
+.pm-nm::before{content:"";position:absolute;top:0;bottom:0;left:-8px;width:8px;background:var(--surface)}
+.pm-sep{grid-column:1/-1;height:1px;background:var(--border);margin:2px 0}
+.pp-row{padding:12px 0;border-top:1px solid var(--border)}
+.pp-row:first-child{border-top:0;padding-top:2px}
+.pp-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px}
+.pp-name{font-weight:500;font-size:13.5px;min-width:0;overflow-wrap:anywhere}
+.pp-right{display:flex;align-items:center;gap:10px;flex:none;font-size:13px}
+.pp-d{font-size:12px;font-weight:600}
+.pp-bar{position:relative;height:8px;background:var(--surface-2);border-radius:var(--r-pill)}
+.pp-bar>i{position:absolute;inset:0 auto 0 0;border-radius:var(--r-pill)}
+.pp-mk{position:absolute;top:-4px;width:3px;height:16px;margin-left:-1px;background:var(--text);border-radius:2px;box-shadow:0 0 0 2px var(--surface)}
+.pm-lg{display:inline-flex;align-items:center;gap:4px}
+.pm-mk-i{display:inline-block;width:3px;height:12px;background:var(--text);border-radius:2px}
+@media (max-width:900px){ .pm-ins{grid-template-columns:1fr} .pm-ins--two{grid-template-columns:1fr 1fr} }
+@media (max-width:560px){ .pm-ins--two{grid-template-columns:1fr} .pp-right{gap:8px} .pm-tbl{grid-template-columns:minmax(120px,1.2fr) 44px 46px repeat(var(--n),minmax(60px,1fr));min-width:calc(120px + 44px + 46px + var(--n) * 64px + 20px)} }
+.pm-help{display:flex;flex-direction:column;gap:10px;max-height:min(58vh,420px);overflow-y:auto;padding-right:6px;margin-bottom:14px}
+.pm-help__it{border:1px solid var(--border);background:var(--surface-2);border-radius:10px;padding:10px 12px;flex:none}
+.pm-help__it--all{border-left:3px solid var(--danger)}
+.pm-help__t{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px}
+.pm-help__k{font-weight:600}
+.pm-help__d{margin-top:4px;font-size:12.5px;color:var(--text-muted)}
+.pm-help__h{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px}
+.pm-chip{font:inherit;font-size:12.5px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:999px;padding:3px 10px;cursor:pointer}
+.pm-chip:hover{border-color:var(--brand);color:var(--brand)}
+.pm-chip--weak{border-color:color-mix(in srgb,var(--danger) 45%,var(--border));font-weight:600}
+.pm-stale{margin:0 0 12px;padding:8px 12px;border-radius:10px;font-size:12.5px;line-height:1.45;background:var(--warn-soft);color:var(--text);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+.pm-sub{font-weight:400}
+.pm-nm__w{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.pm-nm__c{display:none;font-size:11px;color:var(--text-muted);font-weight:400}
+.pm-hint{display:none;font-size:11.5px;color:var(--text-muted);text-align:center;margin:-4px 0 8px}
+@media (max-width:560px){
+  .pm-tbl{grid-template-columns:minmax(132px,1.2fr) 46px repeat(var(--n),minmax(60px,1fr)) !important;min-width:calc(132px + 46px + var(--n) * 64px + 16px) !important}
+  .pm-tbl > .pm-n,.pm-tbl > .pm-h:nth-child(2){display:none}
+  .pm-nm .ava{width:28px;height:28px;flex:none;font-size:11px}
+  .pm-nm{gap:6px;padding-right:4px}
+  .pm-nm__c{display:block}
+  .pm-nm{min-height:42px}
+  .pm-hint{display:block}
+}
+@media (max-width:560px){
+  .list-row{grid-template-columns:36px minmax(0,1fr) auto;gap:8px;padding:10px 6px}
+  .list-row > div:first-of-type{min-width:0}
+  .list-row__name{overflow-wrap:anywhere}
+  .list-row > div:last-child{gap:6px !important}
+  .list-row > div:last-child > svg{display:none}
+}
 .empty{color:var(--text-muted);text-align:center;padding:32px 20px;font-size:13.5px}
 
 /* ===== mobile (basic adaptation) ===== */
@@ -510,7 +592,7 @@ body.is-modal-open{overflow:hidden}
   .table tbody,.table thead{white-space:nowrap}
   .table th,.table td{padding:10px 12px;white-space:nowrap}
   .modal-bg{padding:10px;align-items:flex-start}
-  .modal{padding:18px;max-height:calc(100vh - 20px)}
+  .modal{padding:18px;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px);margin:0 auto}
   .modal-wide{max-width:100% !important}
   .modal-actions{flex-wrap:wrap}
   .cv-overlay{padding:0}
@@ -1436,8 +1518,6 @@ function confirmModal(title, text, okLabel){
   document.addEventListener("mousedown", e => { md = e.target; }, true);
   document.addEventListener("touchstart", e => { md = e.target; }, {capture:true, passive:true});
   // поки відкрито вікно — сторінка під ним не гортається (колесо над вікном без прокрутки гортало сайт)
-  const syncLock = () => document.body.classList.toggle("is-modal-open", !!document.querySelector(".modal-bg, .cv-overlay"));
-  new MutationObserver(syncLock).observe(document.body, {childList:true});
   document.addEventListener("wheel", e => {
     const bg = e.target && e.target.closest && e.target.closest(".modal-bg, .cv-overlay");
     if (!bg) return;
@@ -1450,6 +1530,17 @@ function confirmModal(title, text, okLabel){
           if ((e.deltaY < 0 && n.scrollTop > 0) || (e.deltaY > 0 && n.scrollTop + n.clientHeight < n.scrollHeight - 1)) return;
         }
       }
+      if (n === bg) break;
+      n = n.parentNode;
+    }
+    e.preventDefault();
+  }, {passive:false, capture:true});
+  document.addEventListener("touchmove", e => {
+    const bg = e.target && e.target.closest && e.target.closest(".modal-bg, .cv-overlay");
+    if (!bg) return;
+    let n = e.target;
+    while (n && n !== document.body){
+      if (n.scrollHeight > n.clientHeight + 1){ const oy = getComputedStyle(n).overflowY; if (oy === "auto" || oy === "scroll") return; }
       if (n === bg) break;
       n = n.parentNode;
     }
@@ -2612,7 +2703,7 @@ function renderProgress(root){
     });
   }
 
-  const whoLabel = isManager ? "по тобі" : (progressState.who==="all" ? "по всій команді" : "по " + ((MOCK_MANAGERS.find(m=>m.email===progressState.who)||{}).name || progressState.who));
+  const whoLabel = isManager ? "по тобі" : (progressState.who==="all" ? "по всій команді" : "по " + (userByEmail(progressState.who).name || progressState.who));
   const periodLbl = progressState.period==="custom"
     ? (progressState.from && progressState.to ? fmtDateShort(progressState.from)+" — "+fmtDateShort(progressState.to) : "довільний період")
     : (PERIODS_PROG.find(p=>p.key===progressState.period)||PERIODS_PROG[2]).label.toLowerCase();
@@ -2621,41 +2712,10 @@ function renderProgress(root){
   const deltaColor = data.weekDelta>=0?"var(--success)":"var(--danger)";
   const deltaSign  = data.weekDelta>=0?"+":"";
 
-  // Team-only block: managers list (реальні дані)
-  const avgOf = a => a.length ? Math.round(a.reduce((x,y)=>x+y,0)/a.length) : 0;
-  const mgrRows = (function(){
-    if (isManager || progressState.who!=="all") return [];
-    const now = Date.now(), W = 7*86400000;
-    return managersList().map(m => {
-      const all = data.mine.filter(c => c.managerEmail===m.email);
-      const inP = data.inP.filter(c => c.managerEmail===m.email);
-      const sc = inP.filter(c=>c.status==="done" && !c.isTest && isFullCall(c) && typeof c.score==="number").map(c=>c.score);
-      const wk = (a,b) => all.filter(c=>c.status==="done" && !c.isTest && isFullCall(c) && typeof c.score==="number" && now-b<=new Date(c.startedAt) && new Date(c.startedAt)<now-a).map(c=>c.score);
-      const cur = wk(0,W), prev = wk(W,2*W);
-      return { email:m.email, calls:inP.length, avg:avgOf(sc), has:sc.length>0, delta:(cur.length&&prev.length)?avgOf(cur)-avgOf(prev):0 };
-    }).filter(r=>r.calls>0).sort((a,b)=>b.avg-a.avg);
-  })();
-  const mgrListBlock = (!isManager && progressState.who==="all") ? el("div",{class:"card"},
-    el("div",{class:"section-title"}, el("span",{},"Менеджери команди"), el("span",{class:"muted xs"},"клік → прогрес менеджера")),
-    el("div",{}, mgrRows.length===0 ? el("div",{class:"empty"},"За цей період розмов немає.") :
-    mgrRows.map(ms => {
-      const mgr = userByEmail(ms.email);
-      const col = ms.avg>=80?"var(--success)":ms.avg>=60?"var(--warn)":"var(--danger)";
-      const dcol = ms.delta>=0?"var(--success)":"var(--danger)";
-      return el("div",{class:"list-row", onclick: ()=>{ progressState.who=ms.email; saveProgressPref(); renderProgress(root); }},
-        userAva(mgr),
-        el("div",{},
-          el("div",{class:"list-row__name"}, mgr.name||mgr.email),
-          el("div",{class:"list-row__sub"}, ms.calls+" розмов · середня оцінка (повні діагностики)")),
-        el("div",{style:"display:flex;align-items:center;gap:12px;"},
-          el("span",{style:"font-weight:700;font-size:16px;color:"+(ms.has?col:"var(--text-muted)")+";"}, ms.has?ms.avg+"%":"—"),
-          el("span",{style:"color:"+dcol+";font-weight:600;font-size:12px;"}, (ms.delta>=0?"+":"")+ms.delta+"%"),
-          ICONS.chevronRight()));
-    }))
-  ) : null;
+  const mgrListBlock = null;
 
   // Розмови періоду (для одного менеджера / мого прогресу)
-  const callsBlock = mgrListBlock ? null : (function(){
+  const callsBlock = (!isManager && progressState.who==="all") ? null : (function(){
     const rows = data.inP.slice().sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt)).slice(0,10);
     return el("div",{class:"card"},
       el("div",{class:"section-title"}, el("span",{},"Розмови за "+periodLbl),
@@ -2672,49 +2732,226 @@ function renderProgress(root){
             ICONS.chevronRight())))));
   })();
 
-  // Слабкі місця ТОП-5 і прогрес по критеріях — з реальних аналізів
-  const weakCard = el("div",{class:"card"});
-  const critCard = el("div",{class:"card"});
-  let critOpen = false, lastArgs = [];
-  function paintAnalytics(list, loading, prevList){
-    lastArgs = [list, loading, prevList];
-    const wk = new Map(), cr = new Map();
-    list.forEach(({a}) => {
-      const seen = new Set();
-      (a.weaknesses||[]).forEach(w => { const k = w.criterion || w.title || ""; if (k) seen.add(k); });
-      seen.forEach(k => wk.set(k, (wk.get(k)||0)+1));
-      (a.criteria||[]).forEach(c => { const k = c.name||c.title||""; if (!k || c.score==null) return; const o = cr.get(k)||{sum:0,n:0}; o.sum += Number(c.score)||0; o.n++; cr.set(k,o); });
+  // ===== Прогрес: карта команди (адмін, «Усі менеджери») або особистий вигляд (менеджер / адмін у картці менеджера) =====
+  const teamMode = !isManager && progressState.who==="all";
+  const rng = (function(){ let from=periodStart(progressState.period), to=new Date(8640000000000000);
+    if (progressState.period==="custom" && progressState.from && progressState.to){ from=progressState.from; to=new Date(progressState.to.getTime()+86400000); }
+    return { from, to }; })();
+  const teamInP = callsAll().filter(c => { const t=new Date(c.startedAt); return t>=rng.from && t<rng.to; });
+  const fullOk = c => c.status==="done" && !c.isTest && isFullCall(c);
+  const lvl = v => v>=80 ? "ok" : v>=60 ? "mid" : "low";
+  const colOf = v => v>=80 ? "var(--success)" : v>=60 ? "var(--warn)" : "var(--danger)";
+  const plural = (n,a,b,c) => { const m10=n%10, m100=n%100; return (m10===1&&m100!==11)?a:(m10>=2&&m10<=4&&(m100<12||m100>14))?b:c; };
+  // Актуальні критерії: з самих скриптів (адмін і вище читають їх напряму), інакше — з найновішого аналізу кожного скрипта.
+  // Оцінки за критеріями, яких вже немає в скрипті (видалили чи перейменували), у статистику не йдуть.
+  let scriptsMapRef = null;
+  const buildValid = lists => {
+    const byKey = new Map();   // scriptKey → { titles:[...] }
+    const full = [].concat.apply([], lists).filter(x => fullOk(x.call));
+    const keys = [...new Set(full.map(x => x.call.scriptKey || ""))];
+    keys.forEach(k => {
+      let titles = null;
+      const doc = k && scriptsMapRef ? scriptsMapRef[k] : null;
+      if (doc && Array.isArray(doc.criteria) && doc.criteria.length) titles = doc.criteria.map(c => String(c.title||c.name||"").trim()).filter(Boolean);
+      if (!titles){
+        const items = full.filter(x => (x.call.scriptKey||"")===k && (x.a.criteria||[]).length);
+        items.sort((a,b)=>new Date(b.call.startedAt)-new Date(a.call.startedAt));
+        if (items.length) titles = (items[0].a.criteria||[]).map(c => String(c.name||c.title||"").trim()).filter(Boolean);
+      }
+      if (titles) byKey.set(k, titles);
     });
-    const topWeak = [...wk.entries()].sort((x,y)=>y[1]-x[1]).slice(0,5).map(([label,cnt]) => ({label, cnt, pct: Math.round(cnt/Math.max(list.length,1)*100)}));
-    const prevCr = new Map();
-    (prevList||[]).forEach(({a}) => (a.criteria||[]).forEach(c => { const k = c.name||c.title||""; if (!k || c.score==null) return; const o = prevCr.get(k)||{sum:0,n:0}; o.sum += Number(c.score)||0; o.n++; prevCr.set(k,o); }));
-    const crit = [...cr.entries()].map(([name,o]) => { const pv = prevCr.get(name); return {name, n:o.n, pct:Math.round(o.sum/o.n), delta: pv ? Math.round(o.sum/o.n) - Math.round(pv.sum/pv.n) : null}; }).sort((x,y)=>y.n-x.n||x.name.localeCompare(y.name));
-    const empty = txt => el("div",{class:"empty"}, loading ? "Завантаження…" : txt);
-    const noCritTxt = list.length ? "У розмов за цей період немає оцінки по критеріях." : "За цей період немає розібраних розмов.";
-    weakCard.replaceChildren(
-      el("div",{class:"section-title"}, el("span",{},"Слабкі місця · ТОП-5"), el("span",{class:"muted xs"},"повторюються з розмови в розмову")),
-      el("div",{}, topWeak.length ? topWeak.map(w => el("div",{style:"margin-bottom:14px;"},
-        el("div",{style:"display:flex;justify-content:space-between;margin-bottom:6px;"},
-          el("span",{style:"font-weight:500;font-size:13.5px;"}, w.label),
-          el("span",{class:"muted xs"}, w.cnt+" з "+list.length+" розмов")),
-        el("div",{class:"bar"}, el("span",{style:"width:"+w.pct+"%;background:linear-gradient(90deg,var(--danger),var(--warn));"}))
-      )) : empty("За цей період немає розібраних розмов.")));
-    critCard.replaceChildren(
-      el("div",{class:"section-title"}, el("span",{},"Прогрес по критеріях скрипта"), el("span",{class:"muted xs"}, progressState.period==="all" ? "середній бал" : "середній бал · зміна до попереднього періоду")),
-      el("div",{}, crit.length ? (critOpen ? crit : crit.slice(0,7)).map(c => el("div",{style:"margin-bottom:14px;"},
-        el("div",{style:"display:flex;justify-content:space-between;margin-bottom:6px;"},
-          el("span",{style:"font-weight:500;font-size:13.5px;"}, c.name),
-          el("span",{class:"muted xs"}, c.pct+"% · "+c.n+" розмов",
-            c.delta===null ? null : el("b",{style:"margin-left:8px;color:"+(c.delta>0?"var(--success)":c.delta<0?"var(--danger)":"var(--text-muted)")+";"}, (c.delta>0?"▲ +":c.delta<0?"▼ ":"= ")+(c.delta!==0?c.delta:"0")))),
-        el("div",{class:"bar"}, el("span",{style:"width:"+c.pct+"%;background:"+(c.pct>=80?"linear-gradient(90deg,var(--success),#16A34A)":c.pct>=60?"linear-gradient(90deg,var(--warn),#D97706)":"linear-gradient(90deg,var(--danger),#DC2626)")+";"}))
-      )).concat(crit.length>7 ? [el("button",{class:"btn btn-ghost btn-sm", onclick:()=>{ critOpen=!critOpen; paintAnalytics(...lastArgs); }}, critOpen ? "Згорнути" : "Показати решту ("+(crit.length-7)+")")] : []) : empty(noCritTxt)));
+    const union = []; byKey.forEach((t,k) => { if (k!=="") t.forEach(n => { if (!union.includes(n)) union.push(n); }); });
+    if (byKey.has("")) byKey.get("").forEach(n => { if (!union.includes(n)) union.push(n); });
+    const sets = new Map([...byKey].map(([k,t]) => [k, new Set(t)]));
+    // дрібна правка назви (регістр, розділові знаки, 1–2 літери) — це той самий критерій: стара оцінка лишається в статистиці під новою назвою
+    const norm = x => String(x).toLowerCase().replace(/[^a-zа-яіїєґ0-9]+/g,"");
+    const lev = (a,b) => { const m=a.length,n=b.length; if (!m) return n; if (!n) return m; let prev=Array.from({length:n+1},(_,j)=>j); for (let i=1;i<=m;i++){ const cur=[i]; for (let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); prev=cur; } return prev[n]; };
+    const cache = new Map();
+    const canon = (call, name) => { const k = call.scriptKey || ""; const pool = (k==="" || !sets.has(k)) ? union : [...sets.get(k)];
+      if (!pool.length) return name; if (pool.includes(name)) return name;
+      const ck = k+"|"+name; if (cache.has(ck)) return cache.get(ck);
+      const nn = norm(name); let best = null, bestD = 99, tie = false;
+      pool.forEach(t => { const d = lev(nn, norm(t)); const lim = Math.max(1, Math.floor(Math.max(nn.length, norm(t).length)*0.15)); if (d<=lim){ if (d<bestD){ best=t; bestD=d; tie=false; } else if (d===bestD) tie=true; } });
+      const r = (best && !tie) ? best : null; cache.set(ck, r); return r; };
+    return { canon, order: union };
+  };
+  const critMapOf = (list, V) => { const m = new Map(); let stale = 0;
+    list.forEach(({call,a}) => { if (!fullOk(call)) return;
+      (a.criteria||[]).forEach(c => { const k=String(c.name||c.title||"").trim(); if (!k || c.score==null) return;
+        let kk = k; if (V){ kk = V.canon(call, k); if (!kk){ stale++; return; } }
+        const o=m.get(kk)||{sum:0,n:0}; o.sum+=Number(c.score)||0; o.n++; m.set(kk,o); }); });
+    const r = new Map(); m.forEach((o,k)=>r.set(k,{ pct:Math.round(o.sum/o.n), n:o.n })); r.stale = stale; return r; };
+  const staleNote = n => n>0 ? el("div",{class:"pm-stale"}, "Не враховано "+n+" "+plural(n,"оцінку","оцінки","оцінок")+" за критеріями, яких вже немає в скрипті (видалені чи сильно перейменовані). "+(isManager ? "" : "Перезапусти аналіз цих розмов, щоб вони потрапили в статистику.")) : document.createDocumentFragment();
+  const openManager = email => { progressState.who = email; saveProgressPref(); renderProgress(root); };
+  const sortSt = progressState.sortSt || (progressState.sortSt = { key:"__avg", dir:"desc" });
+  let showAllCols = !!progressState.allCols;
+
+  const fill = (box, ...kids) => box.replaceChildren(...kids.filter(k => k!=null && k!==false));
+  const insBox = el("div",{});          // підказки
+  const mainCard = el("div",{class:"card"});   // карта команди або критерії
+  let lastLists = null;
+
+  function insCard(title, value, desc, onClick, tone){
+    const c = el("div",{class:"card card--pad-sm pm-in"+(onClick?" is-click":"")+(tone?" pm-in--"+tone:""),
+      onclick: onClick||null, role: onClick?"button":null, tabindex: onClick?"0":null,
+      onkeydown: onClick ? (e=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); onClick(); } }) : null },
+      el("div",{class:"pm-in__t"}, title),
+      el("div",{class:"pm-in__v"}, value),
+      desc ? el("div",{class:"pm-in__d"}, desc) : null);
+    return c;
   }
-  paintAnalytics([], true);
-  Promise.all([loadAnalyses(data.inP), loadAnalyses(data.prevCalls)]).then(([list, prevList]) => { if (document.body.contains(weakCard)) paintAnalytics(list,false,prevList); });
+
+  function paintTeam(teamList, loading){
+    const mgrs = managersList().filter(m => teamInP.some(c => c.managerEmail===m.email));
+    const V = buildValid([teamList]);
+    const byM = new Map(mgrs.map(m => [m.email, critMapOf(teamList.filter(x => x.call.managerEmail===m.email), V)]));
+    const teamMap = critMapOf(teamList, V);
+    const callsOf = email => teamInP.filter(c => c.managerEmail===email && fullOk(c));
+    const avgOfEmail = email => { const sc = callsOf(email).filter(c=>typeof c.score==="number").map(c=>c.score); return sc.length ? Math.round(sc.reduce((a,b)=>a+b,0)/sc.length) : null; };
+    // порядок — як у скрипті; критерії без жодної оцінки в колонки не потрапляють
+    const allCrit = V.order.filter(k => teamMap.has(k)).concat([...teamMap.keys()].filter(k => !V.order.includes(k)));   // лише актуальні критерії, у порядку скрипта
+    const cols = showAllCols ? allCrit : allCrit.slice(0,8);
+    if (sortSt.key!=="__avg" && sortSt.key!=="__name" && !allCrit.includes(sortSt.key)){ sortSt.key="__avg"; sortSt.dir="desc"; }
+
+    // --- підказки ---
+    const have = k => mgrs.map(m => ({ m, v: (byM.get(m.email)||new Map()).get(k) })).filter(x=>x.v);
+    let weakAll = null;
+    allCrit.forEach(k => { const h = have(k); if (h.length<2) return; const below = h.filter(x=>x.v.pct<65).length, share = below/h.length;
+      if (share>=0.5 && teamMap.get(k).pct<65){ if (!weakAll || share>weakAll.share || (share===weakAll.share && teamMap.get(k).pct<weakAll.pct)) weakAll = { k, share, below, total:h.length, pct:teamMap.get(k).pct }; } });
+    // «Потрібна допомога»: усі пари менеджер·критерій, де відставання від команди ≥10 пунктів (від 2 оцінок); для кожного — хто може допомогти
+    const problems = [];
+    allCrit.forEach(k => have(k).forEach(x => { if (x.v.n<2) return; const gap = teamMap.get(k).pct - x.v.pct; if (gap>=10) problems.push({ k, m:x.m, v:x.v.pct, team:teamMap.get(k).pct, gap }); }));
+    problems.sort((a,b)=>b.gap-a.gap);
+    const helpersFor = (k, exceptEmail) => have(k).filter(x => x.v.n>=2 && x.v.pct>=70 && x.m.email!==exceptEmail).sort((a,b)=>b.v.pct-a.v.pct).slice(0,2).map(x => ({ m:x.m, v:x.v.pct }));
+    problems.forEach(pr => { pr.helpers = helpersFor(pr.k, pr.m.email); });
+    const nameOf = m => m.name || m.email;
+    // найсильніше в команді
+    let bestCrit = null;
+    allCrit.forEach(k => { const h = have(k).filter(x=>x.v.n>=2); if (h.length<1 || teamMap.get(k).n<3) return; const t = teamMap.get(k).pct; if (!bestCrit || t>bestCrit.pct) { const lead = h.slice().sort((a,b)=>b.v.pct-a.v.pct)[0]; bestCrit = { k, pct:t, lead }; } });
+    const goSort = k => { if (!cols.includes(k)){ showAllCols = true; progressState.allCols = true; } sortSt.key = k; sortSt.dir = "asc"; paintTeam(...lastLists); setTimeout(()=>mainCard.scrollIntoView({behavior:"smooth",block:"start"}),0); };
+    const openHelpModal = () => {
+      const bg = el("div",{class:"modal-bg", onclick:(ev)=>{ if (ev.target===bg) bg.remove(); }});
+      const go = email => { bg.remove(); openManager(email); };
+      const body = el("div",{class:"pm-help"});
+      if (weakAll){
+        const hs = helpersFor(weakAll.k, null);
+        body.appendChild(el("div",{class:"pm-help__it pm-help__it--all"},
+          el("div",{class:"pm-help__t"}, "Слабко в усіх · ", el("b",{}, weakAll.k)),
+          el("div",{class:"pm-help__d"}, "Середній бал "+weakAll.pct+"%: у "+weakAll.below+" з "+weakAll.total+" "+plural(weakAll.total,"менеджера","менеджерів","менеджерів")+" нижче 65%."),
+          hs.length ? el("div",{class:"pm-help__h"}, "Приклад для команди: ", hs.map(h => el("button",{class:"pm-chip", type:"button", onclick:()=>go(h.m.email)}, nameOf(h.m)+" · "+h.v+"%"))) : null));
+      }
+      problems.forEach(pr => body.appendChild(el("div",{class:"pm-help__it"},
+        el("div",{class:"pm-help__t"},
+          el("button",{class:"pm-chip pm-chip--weak", type:"button", onclick:()=>go(pr.m.email)}, nameOf(pr.m)),
+          el("span",{class:"pm-help__k"}, pr.k)),
+        el("div",{class:"pm-help__d"}, pr.v+"% при "+pr.team+"% у команди ("+"−"+pr.gap+" п.)"),
+        el("div",{class:"pm-help__h"}, "Допоможе: ", pr.helpers.length ? pr.helpers.map(h => el("button",{class:"pm-chip", type:"button", onclick:()=>go(h.m.email)}, nameOf(h.m)+" · "+h.v+"%")) : el("span",{class:"muted"}, "поки немає прикладу (потрібно 70%+ і 2 оцінки)")))));
+      if (!problems.length && !weakAll) body.appendChild(el("div",{class:"empty"}, "Помітних провалів немає."));
+      bg.appendChild(el("div",{class:"modal", style:"max-width:560px;"},
+        el("h2",{}, "Кому потрібна допомога"),
+        el("div",{class:"muted xs", style:"margin:-8px 0 12px;"}, "Відставання від команди 10 і більше пунктів, від 2 оцінок. Клік по імені відкриває менеджера."),
+        body,
+        el("div",{class:"modal-actions"}, el("button",{class:"btn btn-primary", onclick:()=>bg.remove()}, "Закрити"))));
+      document.body.appendChild(bg);
+    };
+
+    const np = problems.length;
+    fill(insBox,el("div",{class:"pm-ins"},
+      weakAll ? insCard("Слабко в усіх", weakAll.k, "Середній бал "+weakAll.pct+"%: у "+weakAll.below+" з "+weakAll.total+" "+plural(weakAll.total,"менеджера","менеджерів","менеджерів")+" нижче 65%", ()=>goSort(weakAll.k), "low")
+              : insCard("Слабко в усіх", "Спільної слабкої зони немає", loading ? "Рахую…" : "Жоден критерій не просідає одразу в більшості менеджерів", null, "ok"),
+      np ? insCard("Потрібна допомога", np+" "+plural(np,"випадок","випадки","випадків")+" · "+nameOf(problems[0].m)+" · "+problems[0].k,
+              (problems[0].helpers.length ? "Допоможе: "+nameOf(problems[0].helpers[0].m)+" ("+problems[0].helpers[0].v+"%)" : "Поки немає прикладу")+(np>1 ? " · ще "+(np-1) : "")+" — натисни, щоб побачити всіх", openHelpModal, "mid")
+         : insCard("Потрібна допомога", "Помітних провалів немає", loading ? "Рахую…" : "Нікого не видно нижче команди на 10 і більше пунктів (потрібно від 2 оцінок)", weakAll ? openHelpModal : null, "ok"),
+      bestCrit ? insCard("Найсильніше в команді", bestCrit.k, "Середній бал "+bestCrit.pct+"%"+(bestCrit.lead ? " · найкращий: "+nameOf(bestCrit.lead.m)+" ("+bestCrit.lead.v.pct+"%)" : ""), bestCrit.lead ? ()=>openManager(bestCrit.lead.m.email) : null, "ok")
+               : insCard("Найсильніше в команді", "—", loading ? "Рахую…" : "Поки замало оцінок", null)));
+
+    // --- карта ---
+    const rowsData = mgrs.map(m => ({ m, avg:avgOfEmail(m.email), n:callsOf(m.email).length, map:byM.get(m.email) }));
+    const val = (r) => sortSt.key==="__avg" ? r.avg : sortSt.key==="__name" ? null : (r.map.get(sortSt.key)||{}).pct;
+    rowsData.sort((a,b) => {
+      if (sortSt.key==="__name") return (a.m.name||a.m.email).localeCompare(b.m.name||b.m.email, "uk") * (sortSt.dir==="asc"?1:-1);
+      const x=val(a), y=val(b); if (x==null && y==null) return 0; if (x==null) return 1; if (y==null) return -1;
+      return sortSt.dir==="asc" ? x-y : y-x; });
+    const arrow = k => sortSt.key===k ? (sortSt.dir==="asc" ? " ▲" : " ▼") : "";
+    const sortBy = (k, firstDir) => { if (sortSt.key===k) sortSt.dir = sortSt.dir==="asc" ? "desc" : "asc"; else { sortSt.key=k; sortSt.dir=firstDir||"desc"; } paintTeam(...lastLists); };
+    const head = (k, text, title, firstDir) => el("button",{class:"pm-h"+(sortSt.key===k?" is-on":""), type:"button", title: title||text, onclick:()=>sortBy(k, firstDir)}, text+arrow(k));
+    const cell = (v, title, onClick) => v ? el("button",{class:"pm-c pm-"+lvl(v.pct)+(v.n<3?" pm-dim":""), type:"button", title: title+" · "+v.pct+"% · "+v.n+" "+plural(v.n,"розмова","розмови","розмов")+(v.n<3?" (мало даних)":""), onclick:onClick}, String(v.pct))
+                    : el("span",{class:"pm-c pm-na", title: title+": даних немає"}, "—");
+    const grid = el("div",{class:"pm-tbl", style:"--n:"+cols.length});
+    const hdr = [ head("__name","Менеджер","Сортувати за іменем","asc"), el("span",{class:"pm-h",title:"Повних розмов у періоді"},"Розм."), head("__avg","Сер.","Середня оцінка повних діагностик") ].concat(cols.map(k => head(k,k,k+" — клік сортує","asc")));
+    hdr.forEach(h => grid.appendChild(h));
+    // рядок команди
+    const tAvg = (function(){ const sc = teamInP.filter(c=>fullOk(c)&&typeof c.score==="number").map(c=>c.score); return sc.length ? Math.round(sc.reduce((a,b)=>a+b,0)/sc.length) : null; })();
+    grid.appendChild(el("div",{class:"pm-nm pm-team"}, el("span",{class:"ava ava--sm",style:"background:var(--brand-soft);color:var(--brand);"}, ICONS.users()), el("span",{class:"pm-nm__w"}, el("span",{class:"pm-nm__t"},"Команда"), el("span",{class:"pm-nm__c"}, teamInP.filter(fullOk).length+" "+plural(teamInP.filter(fullOk).length,"розмова","розмови","розмов")))));
+    grid.appendChild(el("span",{class:"pm-n pm-team"}, String(teamInP.filter(fullOk).length)));
+    grid.appendChild(tAvg!=null ? el("span",{class:"pm-c pm-"+lvl(tAvg)+" pm-team"}, String(tAvg)) : el("span",{class:"pm-c pm-na"},"—"));
+    cols.forEach(k => { const v = teamMap.get(k); grid.appendChild(v ? el("span",{class:"pm-c pm-"+lvl(v.pct)+" pm-team", title:k+" · команда · "+v.pct+"% · "+v.n+" "+plural(v.n,"оцінка","оцінки","оцінок")}, String(v.pct)) : el("span",{class:"pm-c pm-na"},"—")); });
+    grid.appendChild(el("div",{class:"pm-sep"}));
+    rowsData.forEach(r => {
+      const nm = r.m.name || r.m.email;
+      grid.appendChild(el("button",{class:"pm-nm", type:"button", title:"Відкрити прогрес: "+nm, onclick:()=>openManager(r.m.email)}, userAva(r.m,"sm"), el("span",{class:"pm-nm__w"}, el("span",{class:"pm-nm__t"}, nm), el("span",{class:"pm-nm__c"}, r.n+" "+plural(r.n,"розмова","розмови","розмов")))));
+      grid.appendChild(el("span",{class:"pm-n"}, String(r.n)));
+      grid.appendChild(r.avg!=null ? el("button",{class:"pm-c pm-"+lvl(r.avg), type:"button", title:nm+" · середня "+r.avg+"%", onclick:()=>openManager(r.m.email)}, String(r.avg)) : el("span",{class:"pm-c pm-na"},"—"));
+      cols.forEach(k => grid.appendChild(cell(r.map.get(k), nm+" · "+k, ()=>openManager(r.m.email))));
+    });
+    const legend = el("div",{class:"pm-legend"},
+      el("span",{}, el("i",{style:"background:var(--success)"}), "80+"), el("span",{}, el("i",{style:"background:var(--warn)"}), "60–79"), el("span",{}, el("i",{style:"background:var(--danger)"}), "до 60"),
+      el("span",{class:"muted xs"}, "блідіша клітинка — менше 3 розмов"));
+    fill(mainCard,
+      el("div",{class:"section-title"}, el("span",{},"Карта команди"), el("span",{class:"muted xs pm-sub"}, "повні діагностики · клік по рядку відкриває менеджера")),
+      legend,
+      el("div",{class:"pm-hint"}, "← гортай таблицю вбік →"),
+      staleNote(teamMap.stale),
+      !rowsData.length ? el("div",{class:"empty"}, loading ? "Завантаження…" : "За цей період розмов немає.")
+        : el("div",{class:"pm-scroll"}, grid),
+      (allCrit.length>8) ? el("button",{class:"btn btn-ghost btn-sm", style:"margin-top:12px;", onclick:()=>{ showAllCols=!showAllCols; progressState.allCols=showAllCols; paintTeam(...lastLists); }}, showAllCols ? "Лише головні критерії" : "Усі критерії ("+allCrit.length+")") : null);
+  }
+
+  function paintPersonal(teamList, prevList, loading){
+    const mineList = isManager ? teamList : teamList.filter(x => x.call.managerEmail===who);
+    const V = buildValid([teamList, prevList||[]]);
+    const mine = critMapOf(mineList, V);
+    const marker = isManager ? critMapOf(prevList||[], V) : critMapOf(teamList, V);
+    const mkLabel = isManager ? "мій минулий період" : "середнє по команді";
+    const rows = [...mine.entries()].map(([k,v]) => ({ k, v, mk: marker.get(k)||null })).sort((a,b)=>a.v.pct-b.v.pct || a.k.localeCompare(b.k));
+    const best = rows.length ? rows[rows.length-1] : null, worst = rows.length ? rows[0] : null;
+    fill(insBox,el("div",{class:"pm-ins pm-ins--two"},
+      worst ? insCard("Що підтягнути", worst.k, worst.v.pct+"% · "+worst.v.n+" "+plural(worst.v.n,"оцінка","оцінки","оцінок"), null, lvl(worst.v.pct)==="ok"?"ok":lvl(worst.v.pct)) : insCard("Що підтягнути", "—", loading ? "Рахую…" : "Немає розібраних розмов за цей період", null),
+      best ? insCard("Що виходить найкраще", best.k, best.v.pct+"% · "+best.v.n+" "+plural(best.v.n,"оцінка","оцінки","оцінок"), null, "ok") : insCard("Що виходить найкраще", "—", loading ? "Рахую…" : "Немає розібраних розмов за цей період", null)));
+    const open = progressState.critOpen;
+    const shown = open ? rows : rows.slice(0,8);
+    fill(mainCard,
+      el("div",{class:"section-title"}, el("span",{}, isManager ? "Мої критерії" : "Критерії менеджера"), el("span",{class:"muted xs pm-lg"}, el("i",{class:"pm-mk-i"}), " "+mkLabel)),
+      staleNote(mine.stale),
+      shown.length ? el("div",{}, shown.map(r => {
+        const d = r.mk ? r.v.pct - r.mk.pct : null;
+        const tip = r.k+" · "+r.v.pct+"% ("+r.v.n+" "+plural(r.v.n,"оцінка","оцінки","оцінок")+")"+(r.mk ? " · "+mkLabel+": "+r.mk.pct+"%" : " · "+mkLabel+": немає даних");
+        return el("div",{class:"pp-row", title:tip},
+          el("div",{class:"pp-top"},
+            el("span",{class:"pp-name"}, r.k),
+            el("span",{class:"pp-right"},
+              d==null ? null : el("span",{class:"pp-d", style:"color:"+(d>0?"var(--success)":d<0?"var(--danger)":"var(--text-muted)")+";"}, d>0?"▲ +"+d : d<0?"▼ "+d : "= 0"),
+              el("b",{style:"color:"+colOf(r.v.pct)+";"}, r.v.pct+"%"))),
+          el("div",{class:"pp-bar"}, el("i",{style:"width:"+r.v.pct+"%;background:"+colOf(r.v.pct)+";"}), r.mk ? el("span",{class:"pp-mk", style:"left:"+r.mk.pct+"%;"}) : null));
+      }).concat(rows.length>8 ? [el("button",{class:"btn btn-ghost btn-sm", style:"margin-top:10px;", onclick:()=>{ progressState.critOpen=!open; paintPersonal(teamList, prevList, false); }}, open ? "Згорнути" : "Показати решту ("+(rows.length-8)+")")] : []))
+        : el("div",{class:"empty"}, loading ? "Завантаження…" : "За цей період немає оцінок по критеріях."));
+  }
+
+  function paint(teamList, prevList, loading){
+    lastLists = [teamList, prevList, loading];
+    if (teamMode) paintTeam(teamList, loading); else paintPersonal(teamList, prevList, loading);
+  }
+  (function(){ lastLists = [[], [], true]; if (teamMode) paintTeam([], true); else paintPersonal([], [], true); })();
+  Promise.all([loadAnalyses(teamInP), loadAnalyses(data.prevCalls), isManager ? Promise.resolve(null) : scriptsAll().catch(()=>null)]).then(([tl, pl, sm]) => {
+    if (!document.body.contains(mainCard)) return;
+    scriptsMapRef = sm && Object.keys(sm).length ? sm : null;
+    lastLists = [tl, pl, false]; paint(tl, pl, false); });
+
+  const backBtn = (!isManager && !teamMode) ? el("button",{class:"btn btn-ghost btn-sm", type:"button", onclick:()=>{ progressState.who="all"; saveProgressPref(); renderProgress(root); }}, "← Уся команда") : null;
 
   root.replaceChildren(
     el("div",{class:"page-header"},
-      el("h1",{class:"page-title"}, title),
+      el("div",{style:"display:flex;align-items:center;gap:12px;flex-wrap:wrap;"}, backBtn, el("h1",{class:"page-title"}, title)),
       el("div",{style:"display:flex;gap:10px;align-items:center;flex-wrap:wrap;"},
         picker, dateDD, periodSeg)),
 
@@ -2737,9 +2974,10 @@ function renderProgress(root){
       })(),
     ),
 
-    el("div",{class:"ov-blocks"}, weakCard, critCard),
+    insBox,
+    mainCard,
 
-    el("div",{style:"margin-top:var(--s-4);"}, mgrListBlock || callsBlock)
+    ...(callsBlock ? [el("div",{style:"margin-top:var(--s-4);"}, callsBlock)] : [])
   );
 }
 

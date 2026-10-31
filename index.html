@@ -2114,6 +2114,18 @@ function openCallDetail(call){ location.hash = '#/calls/' + call.id; return;
  * ======================================================== */
 // Реальні аналізи готових розмов (analysis/main), з кешем
 const __anCache = new Map();
+// Постійний кеш (localStorage) для розмов без digest: зріз аналізу (слабкі місця + бали критеріїв) читаємо з бази один раз, далі — з браузера
+const AN_LS_KEY = "alexa_an_cache_v2";
+let __anLs = null, __anLsTimer = null;
+function anLsAll(){ if (__anLs) return __anLs; try { __anLs = JSON.parse(localStorage.getItem(AN_LS_KEY)||"{}") || {}; } catch(_){ __anLs = {}; } return __anLs; }
+function anLsSave(){
+  clearTimeout(__anLsTimer);
+  __anLsTimer = setTimeout(()=>{ try {
+    const o = anLsAll(), keys = Object.keys(o);
+    if (keys.length > 800) keys.sort((x,y)=>(o[x].t||0)-(o[y].t||0)).slice(0, keys.length-800).forEach(k=>delete o[k]);
+    localStorage.setItem(AN_LS_KEY, JSON.stringify(o));
+  } catch(_){ try { localStorage.removeItem(AN_LS_KEY); } catch(__){} __anLs = {}; } }, 800);
+}
 async function loadAnalyses(calls){
   const done = calls.filter(c=>c.status==="done");
   await Promise.all(done.map(async c=>{
@@ -2124,7 +2136,15 @@ async function loadAnalyses(calls){
       __anCache.set(c.id,{sig,a:{ weaknesses:(c.digest.w||[]), criteria:(c.digest.c||[]) }});
       return;
     }
+    const ls = anLsAll()[c.id];
+    if (ls && ls.sig===sig){ __anCache.set(c.id,{sig,a:{ weaknesses:ls.w||[], criteria:ls.c||[] }}); return; }      // з браузера: 0 читань бази
     try { const sn = await db.collection("calls").doc(c.id).collection("analysis").doc("main").get(); if (sn.exists) a = sn.data(); } catch(_){}
+    if (a){
+      anLsAll()[c.id] = { sig, t:Date.now(),
+        w:(a.weaknesses||[]).map(x=>({ criterion:(x&&x.criterion)||"", title:(x&&x.title)||"" })),
+        c:(a.criteria||[]).map(x=>({ name:(x&&(x.name||x.title))||"", score:x&&x.score })) };
+      anLsSave();
+    }
     __anCache.set(c.id,{sig,a});
   }));
   return done.map(c=>({call:c, a:(__anCache.get(c.id)||{}).a})).filter(x=>x.a);

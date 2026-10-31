@@ -3231,7 +3231,7 @@ function renderSettings(root){
   const workerInfo = el("div",{class:"muted small",style:"line-height:1.5;"},"");
   const srvInfo = el("div",{style:"display:flex;flex-direction:column;gap:8px;margin-top:8px;"});
   (function(){   // авто-обслуговування сервера: health/server (пише сам сервер раз на зміну / раз на годину)
-    let x = null, loaded = false;
+    let x = null, loaded = false, histOpen = false, histN = 10;
     function paintSrv(){
       srvInfo.textContent = "";
       const add = (bg,fg,title,cause,action)=>{
@@ -3257,6 +3257,27 @@ function renderSettings(root){
         add("var(--surface-2)","var(--text-muted,inherit)","Усе працює"+(ts ? " · перевірено "+ts.toLocaleString("uk-UA",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"}) : ""),
           "", "");
         if (x.lastFix) srvInfo.lastChild.appendChild(el("div",{style:"margin-top:2px;font-weight:400;"},"Сервер сам усунув несправність: "+x.lastFix));
+      }
+      { // історія подій: що з'являлось і зникало (пише сервер, останні 40)
+        const log = Array.isArray(x.log) ? x.log.slice().reverse() : [];
+        const fmtT = iso => { try { return new Date(iso).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); } catch(_){ return iso; } };
+        const box = el("div",{style:"display:"+(histOpen?"flex":"none")+";flex-direction:column;gap:6px;margin-top:6px;"});
+        const shown = log.slice(0, histN);
+        if (!log.length) box.appendChild(el("div",{class:"muted small"},"Подій поки не було — запис почнеться з наступної несправності."));
+        shown.forEach(e => {
+          const col = e.kind==="end" ? "var(--success)" : (e.level==="error" ? "var(--danger)" : "var(--warn)");
+          box.appendChild(el("div",{style:"display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.45;"},
+            el("span",{style:"flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px;background:"+col+";"}),
+            el("div",{style:"min-width:0;"},
+              el("div",{}, el("span",{class:"muted xs"}, fmtT(e.ts)+" · "), e.kind==="end" ? "Усунено: "+e.title : e.title),
+              (e.kind!=="end" && e.cause) ? el("div",{class:"muted xs",style:"overflow-wrap:anywhere;"}, e.cause) : null)));
+        });
+        if (log.length > histN) box.appendChild(el("button",{class:"btn btn-ghost btn-sm",style:"align-self:flex-start;",onclick:()=>{ histN += 10; paintSrv(); }}, "Показати ще ("+(log.length-histN)+")"));
+        const cnt = list.length;
+        srvInfo.appendChild(el("div",{style:"display:flex;align-items:center;gap:10px;flex-wrap:wrap;"},
+          el("button",{class:"btn btn-ghost btn-sm", onclick:()=>{ histOpen = !histOpen; paintSrv(); }}, (histOpen?"Сховати історію":"Історія подій"+(log.length?" ("+log.length+")":""))),
+          el("span",{class:"muted xs"}, cnt ? "Зараз активних проблем: "+cnt : "Зараз проблем немає")));
+        srvInfo.appendChild(box);
       }
       if (x.stats){
         const t = x.stats, parts = [];

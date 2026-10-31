@@ -83,6 +83,11 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .navbar__item svg{width:16px;height:16px}
 .navbar__item.has-warn,.icon-btn.has-warn,.btn.has-warn{outline:2px solid var(--warn);outline-offset:1px;animation:attnPulse 2.2s ease-in-out infinite}
 .navbar__item.has-danger{outline:2px solid var(--danger);outline-offset:1px;animation:attnPulseR 2.2s ease-in-out infinite}
+/* «Налаштування»: жовте попередження — маленький блимаючий кружечок справа зверху; критичне — червона обводка (has-danger) */
+.navbar__item.has-dot{position:relative;overflow:visible}
+.navbar__item.has-dot::before{content:"";position:absolute;top:4px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 2px var(--surface),0 0 8px 1px rgba(245,179,1,.55);animation:attnDot 2.8s ease-in-out infinite;pointer-events:none;z-index:2}
+.navbar__item.is-active.has-dot::before{box-shadow:0 0 0 2px var(--brand),0 0 8px 1px rgba(245,179,1,.6)}
+@keyframes attnDot{0%,100%{opacity:1}50%{opacity:.45}}
 @keyframes attnPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,179,1,0)}50%{box-shadow:0 0 0 5px rgba(245,179,1,.28)}}
 @keyframes attnPulseR{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}50%{box-shadow:0 0 0 5px rgba(239,68,68,.25)}}
 .navbar__item:hover{background:var(--brand-soft);color:var(--brand)}
@@ -592,6 +597,7 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
   .cv-jump button{width:40px;height:40px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--jump-bg);color:var(--text-muted);box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.7);transition:opacity .18s,transform .18s;pointer-events:none}
   .cv-jump button.is-on{opacity:.92;transform:none;pointer-events:auto}
   /* підсвітка «зверни увагу» в нижньому меню: outline там обрізається overflow, тому фон */
+  .navbar__item.has-dot::before{top:3px;right:calc(50% - 20px)}
   .navbar__item.has-warn,.navbar__item.has-danger{outline:none;box-shadow:inset 0 0 0 2px var(--warn);overflow:visible}
   .navbar__item.has-warn{animation:attnBgY 2.2s ease-in-out infinite}
   .navbar__item.has-danger{box-shadow:inset 0 0 0 2px var(--danger);animation:attnBgR 2.2s ease-in-out infinite}
@@ -1557,7 +1563,8 @@ function watchAttention(user, settingsItem, gearBtn){
       const spent = Math.max(Number(u.analysisCostUsd||0)+Number(u.chatCostUsd||0), Number(u.realCostUsd||0));
       const pct = limit>0 ? spent/limit*100 : 0;
       settingsItem.classList.toggle("has-danger", pct>=100 || srv==="error");
-      settingsItem.classList.toggle("has-warn", (pct>=90 && pct<100 && srv!=="error") || (srv==="warn" && pct<100));
+      settingsItem.classList.remove("has-warn");
+      settingsItem.classList.toggle("has-dot", (pct>=90 && pct<100 && srv!=="error") || (srv==="warn" && pct<100));   // жовте — лише блимаючий кружечок; червоне (has-danger) — обводка
       settingsItem.title = pct>=100 ? "Ліміт ШІ вичерпано — ШІ зупинено" : srv==="error" ? "Проблема на сервері — відкрий Налаштування" : pct>=90 ? "Витрачено понад 90% ліміту ШІ" : srv==="warn" ? "Сервер виправляє несправність сам" : "";
     };
     let srvTs = null;
@@ -2171,6 +2178,11 @@ function renderCalls(root){
       const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
       if (n) n.textContent = String(base.filter(t.match).length);
     });
+    { const an = tabs.querySelector('.tab-count[data-k="admin_calls"]');
+      if (an) an.textContent = String(adminCallsAll().filter(c => {
+        if (callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false;
+        const t = new Date(c.startedAt).getTime();
+        return !(from && t<from.getTime()) && !(to && t>to.getTime()); }).length); }
     const byStart = (a,b)=> new Date(b.startedAt)-new Date(a.startedAt);
     const list = base.filter(tabMatch).sort(byStart);
 
@@ -2252,6 +2264,7 @@ function adminCallsAll(){
   }
   return all;
 }
+function findCallAny(id){ return callsAll().find(c => c.id===id) || adminCallsAll().find(c => c.id===id); }
 function adminCallsSig(){ return adminCallsAll().map(c => [c.id,c.status,c.progress,c.stage,tsKey(c.updatedAt)].join(":")).join("|"); }
 function renderAdminCallsView(root, tabs){
   const listWrap = el("div",{});
@@ -2285,9 +2298,10 @@ function renderAdminCallsView(root, tabs){
       const proc = PROC_STATES.includes(c.status);
       const canStart = aiAllowed() && ["idle","canceled","error","transcribed"].includes(c.status);
       listWrap.appendChild(el("div",{class:"card",style:"display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;",
-        onclick:()=>openAdminCallModal(c.id)},
+        onclick:()=>{ location.hash = "#/calls/"+c.id; }},
         el("div",{style:"flex:1;min-width:0;"},
           el("div",{style:"font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"}, c.title || c.client || "(без назви)"),
+          (activeUser && activeUser.role!==ROLES.ADMIN) ? el("div",{style:"display:flex;align-items:center;gap:6px;margin-top:3px;"}, userAva(userByEmail(c.managerEmail),"sm"), el("span",{class:"small",style:"font-weight:500;"}, (userByEmail(c.managerEmail).name||c.managerEmail))) : null,
           el("div",{class:"muted xs",style:"margin-top:2px;"}, fmtDate(c.startedAt)+" о "+fmtTime(c.startedAt)+(c.durationSec?" · "+fmtDur(c.durationSec):"")),
           c.summaryShort ? el("div",{class:"muted small truncate",style:"margin-top:4px;"}, c.summaryShort) : null),
         el("div",{style:"display:flex;align-items:center;gap:8px;flex-shrink:0;"},
@@ -3508,7 +3522,7 @@ function tcToSec(t){
 const callDetailState = { tab:"summary", openCrit:null, jumpWeak:null };
 
 function renderCallDetail(root, callId){
-  const call = callsAll().find(c => c.id===callId);
+  const call = findCallAny(callId);
   if (!call){
     root.replaceChildren(el("div",{class:"page-header"}, el("h1",{class:"page-title"},"Розмова не знайдена")),
       el("button",{class:"btn btn-ghost", onclick: ()=>{ location.hash = "#/calls"; }}, "← Повернутись"));
@@ -3553,7 +3567,7 @@ function renderCallDetail(root, callId){
     });
     return out;
   }
-  const _cr = callsAll().find(c => c.id===callId);
+  const _cr = findCallAny(callId);
   const _csig = (_cr && _cr.status==="done") ? ["v1", _cr.status, tsKey(_cr.updatedAt), _cr.score, _cr.durationSec].join("|") : null;   // кешуємо лише завершені розмови
   const _ckey = ((activeUser&&activeUser.email)||"")+"|"+callId;
   async function loadRealTranscript(){
@@ -3574,6 +3588,7 @@ function renderCallDetail(root, callId){
         return snap.exists ? JSON.parse(JSON.stringify(snap.data() || {})) : null;
       });
       if (!a) return;
+      if (call.kind==="admin_meeting"){ d.adminA = a; return; }
       if (a.summary)    { d.summary = a.summary; d.sections = [{ title:"Підсумок", text:a.summary }]; }
       if (a.payment && typeof a.payment==="object") d.payment = a.payment;
       if (a.agreements) d.agreements = a.agreements.map(x => x.text || x);
@@ -3608,13 +3623,18 @@ function renderCallDetail(root, callId){
     }
   });
 
-  const TABS = [
+  const isAdminMeeting = call.kind==="admin_meeting";
+  const TABS = isAdminMeeting ? [
+    { key:"summary", label:"Підсумок" },
+    { key:"transcript", label:"Транскрипт" },
+  ] : [
     { key:"summary", label:"Підсумок" },
     { key:"weak",    label:"Слабкі місця" },
     { key:"script",  label:"Скрипт" },
     { key:"client",  label:"Клієнт" },
     { key:"transcript", label:"Транскрипт" },
   ];
+  if (!TABS.some(t => t.key===callDetailState.tab)) callDetailState.tab = "summary";
 
   // Player iframe (manual без YT URL — placeholder; youtube_watcher та manual з videoId — embed)
   let playerNode;
@@ -3709,6 +3729,20 @@ function renderCallDetail(root, callId){
   // Tab content
   function renderTab(){
     const t = callDetailState.tab;
+    if (t==="summary" && isAdminMeeting){
+      const a = d.adminA;
+      if (!a) return emptyCard("Підсумок", call.status==="done" ? "Виписки ще немає" : "Розмова ще не оброблена — виписка з'явиться тут сама");
+      const tsB = x => x && x.ts ? [" ", tcChip(x.ts)] : [];
+      const list = (items, render) => (items && items.length) ? el("ul",{style:"margin:0;padding-left:20px;line-height:1.6;font-size:13.5px;"}, items.map(render)) : el("div",{class:"muted small"},"—");
+      return el("div",{},
+        el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Коротко"), el("div",{class:"cv-summary__p",style:"white-space:pre-wrap;"}, ...tcLinks(a.summary || "—"))),
+        el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Наступні дії"),
+          list(a.actions, x => el("li",{style:"margin-bottom:4px;"}, x.who ? el("b",{},x.who+": ") : null, x.text, x.due ? el("span",{class:"muted small"}," · до "+x.due) : null, ...tsB(x)))),
+        el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"До чого домовились"),
+          list(a.decisions, x => el("li",{style:"margin-bottom:4px;"}, x.text, ...tsB(x)))),
+        (a.remember && a.remember.length) ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Не забути"),
+          list(a.remember, x => el("li",{style:"margin-bottom:4px;"}, x.text, ...tsB(x)))) : null);
+    }
     if (t==="summary"){
       const BLAME = { manager:"Менеджер: міг продати, але не впорався", client:"Клієнт: нецільовий зараз, менеджер не винен", circumstances:"Обставини: технічні чи зовнішні причини" };
       return el("div",{},
@@ -3746,7 +3780,7 @@ function renderCallDetail(root, callId){
     }
     if (t==="transcript"){
       if (!d.transcript.length){
-        const _pc = callsAll().find(c => c.id===callId);
+        const _pc = findCallAny(callId);
         return emptyCard("Повна розшифровка", _pc && _pc.analysisExpired ? "Розшифровку, оцінки й аналіз цього дзвінка видалено автоматично (старше 1 року). Картка й посилання на YouTube лишаються. Щоб проаналізувати знову, натисни «Почати аналіз»." : _pc && _pc.transcriptPurged ? "Розшифровку видалено автоматично (старше 2,5 місяця), щоб не заповнювати базу. Оцінки й аналіз збережені. Щоб отримати текст знову, натисни «Перезапустити аналіз»: розмова розшифрується заново." : null);
       }
       const plain = d.transcript.map(l => "["+l.t+"] "+(l.r?l.r+": ":"")+l.text).join("\n");
@@ -3959,7 +3993,7 @@ function renderCallDetail(root, callId){
   async function sendMsg(text){
     if (!text || !text.trim()) return;
     if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return; }
-    const _cur = callsAll().find(c => c.id===callId);
+    const _cur = findCallAny(callId);
     if (!(_cur && (_cur.transcriptReady || _cur.status==="done"))){ toast("Чат доступний після транскрибації розмови","err"); return; }
     const msg = {
       role: "user",
@@ -4232,7 +4266,7 @@ function closeFullscreen(){
 }
 function openCallFullscreen(callId, soft){
   if (!soft && !(document.getElementById("cv-overlay") && document.getElementById("cv-overlay").dataset.callId===callId)) callDetailState.openCrit = null;
-  const call = callsAll().find(c => c.id===callId);
+  const call = findCallAny(callId);
   // прямая ссылка / F5: данных ещё нет — ждём первую загрузку calls и открываем заново
   if (!call && !window.__callsLoaded){
     window.addEventListener(CALLS_CHANGED_EVT, () => openCallFullscreen(callId), { once:true });
@@ -4243,7 +4277,7 @@ function openCallFullscreen(callId, soft){
   if (window.__cvLive) window.removeEventListener(CALLS_CHANGED_EVT, window.__cvLive);
   window.__cvLive = () => {
     if (!document.getElementById("cv-overlay")) { window.removeEventListener(CALLS_CHANGED_EVT, window.__cvLive); return; }
-    const cur = callsAll().find(c => c.id===callId);
+    const cur = findCallAny(callId);
     if (cur && cur.status !== window.__cvStatus) openCallFullscreen(callId, true);
     else if (cur) cvProgressUpdate(cur);
   };
@@ -4425,7 +4459,7 @@ window.addEventListener(CALLS_CHANGED_EVT, ()=>{
       const body = ov.querySelector(".cv-modal__body");
       // перемальовувати лише якщо змінились суттєві поля цієї розмови (інакше відео в плеєрі перезавантажується
       // від кожного оновлення прогресу / інших розмов)
-      const cur = callsAll().find(c => c.id===arg);
+      const cur = findCallAny(arg);
       const sig = cur ? JSON.stringify([cur.status, cur.embeddable, cur.title, cur.client, cur.audioReady, cur.transcriptReady, cur.score, cur.summaryShort, cur.error, cur.videoId, cur.durationSec]) : "";
       if (body && body.dataset.sig === undefined){ body.dataset.sig = sig; }
       else if (body && body.dataset.sig !== sig){

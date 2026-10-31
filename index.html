@@ -204,6 +204,7 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .cv-prog__steps .is-on{color:var(--text);font-weight:600}.cv-prog__steps .is-done{color:var(--success,#16a34a)}
 .calls-act{padding:2px 9px;min-width:30px;line-height:1.4;flex:none}
 .calls-empty{background:var(--surface);border:1px dashed var(--border);border-radius:var(--r-md);padding:40px 20px;text-align:center;color:var(--text-muted);font-size:13.5px}
+@media (min-width:1101px){ .calls-grid.calls-grid--adm{grid-template-columns:120px 220px 200px 1fr 200px 0 24px} }
 @media (max-width:1100px){
   .calls-grid{grid-template-columns:1fr 1fr}
   .calls-head{display:none}
@@ -386,6 +387,11 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 *::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-h);background-clip:content-box;border:2px solid transparent}
 *::-webkit-scrollbar-corner{background:transparent}
 .dd__pop{scrollbar-gutter:stable}
+.run-opt{border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 12px;cursor:pointer;background:var(--surface);transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.run-opt:hover{border-color:var(--brand)}
+.run-opt.is-on{border-color:var(--brand);background:var(--brand-soft)}
+.run-opt__t{font-weight:600;font-size:14px}
+.run-opt__d{margin-top:3px;font-size:12.5px;line-height:1.45;color:var(--text-muted)}
 /* custom styled dropdown */
 .dd{position:relative}
 .dd__btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:500;cursor:pointer;transition:all var(--dur) var(--ease);min-width:180px;justify-content:space-between}
@@ -1424,18 +1430,60 @@ function confirmModal(title, text, okLabel){
 // Запуск / перезапуск аналізу вручну — завжди з підтвердженням і записом у журнал
 // чи відкритий поточному користувачу доступ до ШІ (адмін може закрити його окремому менеджеру)
 function aiAllowed(){ return !(activeUser && activeUser.role===ROLES.MANAGER && (activeUser.aiBlocked || aiQuota(activeUser).over)); }
+// Вибір режиму запуску (адмін і вище): лише аналіз / якісна розшифровка + аналіз / лише якісна розшифровка
+function chooseRunMode(c){
+  return new Promise(resolve => {
+    const hasTx = !!c.transcriptReady;
+    const opts = [
+      { key:"analysis", title: hasTx ? "Лише аналіз" : "Розшифровка + аналіз (звичайна)",
+        text: hasTx ? "Береться вже готова розшифровка, ШІ робить аналіз заново. Найшвидше й дешево." : "Звичайна швидка розшифровка, далі аналіз." },
+      { key:"hq_full", title:"Розшифровка наново (якісна) + аналіз",
+        text:"Запис знову завантажується й розшифровується точніше: слова й імена розпізнаються краще, але це триває довше. Потім ШІ робить аналіз." },
+      { key:"hq_only", title:"Лише розшифровка наново (якісна), без аналізу",
+        text:"Коли потрібні саме слова, а аналіз не потрібен: точніша розшифровка, довше за звичайну. ШІ не витрачається, старий аналіз (якщо був) лишається." },
+    ];
+    let sel = "analysis";
+    const done = v => { bg.remove(); resolve(v); };
+    const rows = opts.map(o => {
+      const r = el("div",{class:"run-opt"+(o.key===sel?" is-on":""), onclick:()=>{ sel=o.key; rows.forEach(x=>x.el.classList.toggle("is-on", x.key===sel)); }},
+        el("div",{class:"run-opt__t"}, o.title), el("div",{class:"run-opt__d"}, o.text));
+      return { key:o.key, el:r };
+    });
+    const bg = el("div",{class:"modal-bg", onclick:(e)=>{ if (e.target===bg) done(null); }},
+      el("div",{class:"modal", style:"max-width:520px;"},
+        el("h2",{}, "Як запустити «"+(c.client||c.title||"розмову")+"»?"),
+        el("div",{style:"display:flex;flex-direction:column;gap:8px;margin:10px 0 16px;"}, rows.map(x=>x.el)),
+        el("div",{class:"modal-actions"},
+          el("button",{class:"btn btn-ghost", onclick:()=>done(null)},"Ні, скасувати"),
+          el("button",{class:"btn btn-primary", onclick:()=>done(sel)},"Запустити"))));
+    document.body.appendChild(bg);
+  });
+}
 async function startCallAnalysis(c){
   if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return false; }
-  const ok = await confirmModal("Точно запустити аналіз?",
-    "«"+(c.client||c.title||"розмова")+"» піде в обробку, і ШІ витратить гроші на цей аналіз. Запускай, якщо справді потрібно.", "Так, запустити аналіз");
-  if (!ok) return false;
-  const upd = c.transcriptReady
-    ? { status:"queued_for_analysis", stage:"waiting_ai", manualStart:false, error:null }
-    : { status: c.audioReady ? "queued" : "ended", stage:"waiting_worker", manualStart:true, error:null };
-  upd.restartedBy = activeUser.uid; upd.restartedAt = firebase.firestore.FieldValue.serverTimestamp();
-  upd.analysisRequestedBy = activeUser.email;   // воркер списує витрату ШІ з місячного ліміту цього менеджера
+  let mode = "analysis";
+  if (activeUser && activeUser.role!==ROLES.MANAGER){
+    mode = await chooseRunMode(c);
+    if (!mode) return false;
+  } else {
+    const ok = await confirmModal("Точно запустити аналіз?",
+      "«"+(c.client||c.title||"розмова")+"» піде в обробку, і ШІ витратить гроші на цей аналіз. Запускай, якщо справді потрібно.", "Так, запустити аналіз");
+    if (!ok) return false;
+  }
+  const FV = firebase.firestore.FieldValue;
+  let upd;
+  if (mode==="hq_full" || mode==="hq_only"){
+    upd = { status:"ended", stage:"waiting_worker", audioReady:false, transcriptReady:false, manualStart:true, error:null, progress:0,
+            hq:true, transcribeOnly: mode==="hq_only" ? true : FV.delete(), wordCount:FV.delete(), emptyAt:FV.delete() };
+  } else {
+    upd = c.transcriptReady
+      ? { status:"queued_for_analysis", stage:"waiting_ai", manualStart:false, error:null }
+      : { status: c.audioReady ? "queued" : "ended", stage:"waiting_worker", manualStart:true, error:null };
+  }
+  upd.restartedBy = activeUser.uid; upd.restartedAt = FV.serverTimestamp();
+  if (mode!=="hq_only") upd.analysisRequestedBy = activeUser.email;   // воркер списує витрату ШІ з місячного ліміту цього менеджера
   await db.collection("calls").doc(c.id).update(upd);
-  logAction(c.status==="done" ? "restart_analysis" : "start_analysis", c, null);
+  logAction(mode==="hq_only" ? "retranscribe" : (c.status==="done" ? "restart_analysis" : "start_analysis"), c, mode==="analysis" ? null : (mode==="hq_only" ? "якісна розшифровка без аналізу" : "якісна розшифровка + аналіз"));
   return true;
 }
 // Повертає true, якщо у розмови вже був готовий аналіз: тоді після скасування лишається СТАРИЙ аналіз і статус «Готово»
@@ -2178,11 +2226,7 @@ function renderCalls(root){
       const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
       if (n) n.textContent = String(base.filter(t.match).length);
     });
-    { const an = tabs.querySelector('.tab-count[data-k="admin_calls"]');
-      if (an) an.textContent = String(adminCallsAll().filter(c => {
-        if (callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false;
-        const t = new Date(c.startedAt).getTime();
-        return !(from && t<from.getTime()) && !(to && t>to.getTime()); }).length); }
+    { const an = tabs.querySelector('.tab-count[data-k="admin_calls"]'); if (an) an.textContent = String(adminCallsAll().filter(adminInRange).length); }
     const byStart = (a,b)=> new Date(b.startedAt)-new Date(a.startedAt);
     const list = base.filter(tabMatch).sort(byStart);
 
@@ -2256,6 +2300,15 @@ function renderCalls(root){
 /* ========================================================
  *  Розмови адміна (для адмінів) — Zoom-зустрічі адміна з командою, без оцінювання
  * ======================================================== */
+// «Розмови адміна»: власний фільтр, за замовчуванням — за весь час (старих розмов нема, лише нові)
+const adminState = { search:"", from:null, to:null };
+function adminInRange(c){
+  if (adminState.search && !(c.client||c.title||"").toLowerCase().includes(adminState.search)) return false;
+  const t = new Date(c.startedAt).getTime();
+  if (adminState.from && t < new Date(adminState.from.getFullYear(),adminState.from.getMonth(),adminState.from.getDate(),0,0,0).getTime()) return false;
+  if (adminState.to && t > new Date(adminState.to.getFullYear(),adminState.to.getMonth(),adminState.to.getDate(),23,59,59).getTime()) return false;
+  return true;
+}
 function adminCallsAll(){
   const all = window.__adminCalls || [];
   if (activeUser && activeUser.role===ROLES.ADMIN){
@@ -2268,20 +2321,14 @@ function findCallAny(id){ return callsAll().find(c => c.id===id) || adminCallsAl
 function adminCallsSig(){ return adminCallsAll().map(c => [c.id,c.status,c.progress,c.stage,tsKey(c.updatedAt)].join(":")).join("|"); }
 function renderAdminCallsView(root, tabs){
   const listWrap = el("div",{});
-  const aFrom = ()=> callsState.from ? new Date(callsState.from.getFullYear(),callsState.from.getMonth(),callsState.from.getDate(),0,0,0).getTime() : null;
-  const aTo = ()=> callsState.to ? new Date(callsState.to.getFullYear(),callsState.to.getMonth(),callsState.to.getDate(),23,59,59).getTime() : null;
-  function inFilter(c){
-    if (callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false;
-    const t = new Date(c.startedAt).getTime(), f=aFrom(), e=aTo();
-    if (f!=null && t<f) return false;
-    if (e!=null && t>e) return false;
-    return true;
-  }
+  const inFilter = adminInRange;
   function paint(){
     const fl = adminCallsAll().filter(inFilter).sort((x,y)=> new Date(y.startedAt)-new Date(x.startedAt));
-    // лічильники вкладок — за тими самими фільтрами (період/пошук), що й список
-    callTabs().forEach(t => { const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
-      if (n) n.textContent = String(callsAll().filter(c=>{ if(callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false; const tt=new Date(c.startedAt).getTime(), f=aFrom(), e=aTo(); if(f!=null&&tt<f) return false; if(e!=null&&tt>e) return false; return true; }).filter(t.match).length); });
+    // лічильники звичайних вкладок — за фільтрами списку «Розмови» (місяць за замовчуванням)
+    { const f0 = callsState.from ? new Date(callsState.from.getFullYear(),callsState.from.getMonth(),callsState.from.getDate(),0,0,0).getTime() : null;
+      const e0 = callsState.to ? new Date(callsState.to.getFullYear(),callsState.to.getMonth(),callsState.to.getDate(),23,59,59).getTime() : null;
+      callTabs().forEach(t => { const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
+        if (n) n.textContent = String(callsAll().filter(c=>{ if(callsState.manager!=="all" && c.managerEmail!==callsState.manager) return false; const tt=new Date(c.startedAt).getTime(); return !(f0!=null&&tt<f0) && !(e0!=null&&tt>e0); }).filter(t.match).length); }); }
     const an = tabs.querySelector('.tab-count[data-k="admin_calls"]'); if (an) an.textContent = String(fl.length);
     const list = fl;
     listWrap.replaceChildren();
@@ -2294,24 +2341,33 @@ function renderAdminCallsView(root, tabs){
         "Тут з'являться Zoom-розмови адміна. Підключи YouTube-канал (профіль → «📺 YouTube канал») — далі беруться лише НОВІ ефіри, старі не підтягуються."));
       return;
     }
+    const gridCls = "calls-grid calls-grid--adm";
+    listWrap.appendChild(el("div",{class:"calls-head "+gridCls},
+      el("div",{},"Дата / час"), el("div",{},"Адмін"), el("div",{},"Назва"), el("div",{},"Про що розмова"), el("div",{},"Статус"), el("div",{},""), el("div",{},"")));
     list.forEach(c => {
       const proc = PROC_STATES.includes(c.status);
       const canStart = aiAllowed() && ["idle","canceled","error","transcribed"].includes(c.status);
-      listWrap.appendChild(el("div",{class:"card",style:"display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;",
-        onclick:()=>{ location.hash = "#/calls/"+c.id; }},
-        el("div",{style:"flex:1;min-width:0;"},
-          el("div",{style:"font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"}, c.title || c.client || "(без назви)"),
-          (activeUser && activeUser.role!==ROLES.ADMIN) ? el("div",{style:"display:flex;align-items:center;gap:6px;margin-top:3px;"}, userAva(userByEmail(c.managerEmail),"sm"), el("span",{class:"small",style:"font-weight:500;"}, (userByEmail(c.managerEmail).name||c.managerEmail))) : null,
-          el("div",{class:"muted xs",style:"margin-top:2px;"}, fmtDate(c.startedAt)+" о "+fmtTime(c.startedAt)+(c.durationSec?" · "+fmtDur(c.durationSec):"")),
-          c.summaryShort ? el("div",{class:"muted small truncate",style:"margin-top:4px;"}, c.summaryShort) : null),
-        el("div",{style:"display:flex;align-items:center;gap:8px;flex-shrink:0;"},
-          statusBadge(c.status),
-          proc ? el("span",{class:"muted xs"}, progressPct(c)+"%") : null,
-          canStart ? el("button",{class:"btn btn-primary btn-sm", title:"Зробити виписку",
+      const adm = userByEmail(c.managerEmail);
+      listWrap.appendChild(el("div",{class:"calls-row "+gridCls, onclick:()=>{ location.hash = "#/calls/"+c.id; }},
+        el("div",{class:"calls-row__cell"},
+          el("div",{style:"font-weight:500;"}, fmtDate(c.startedAt)),
+          el("div",{class:"muted xs"}, fmtTimeRange(c.startedAt, c.durationSec, c.status))),
+        el("div",{class:"calls-row__cell"},
+          el("div",{style:"display:flex;align-items:center;gap:10px;min-width:0;"},
+            userAva(adm,"sm"),
+            el("div",{class:"truncate",style:"font-weight:500;overflow:hidden;text-overflow:ellipsis;"}, adm.name||String(adm.email||"").split("@")[0]))),
+        el("div",{class:"calls-row__cell truncate",style:"font-weight:500;"}, c.title || c.client || "(без назви)"),
+        el("div",{class:"calls-row__cell truncate muted small"},
+          (c.source==="youtube_watcher" ? "▶ YouTube · " : "✎ Вручну · ") + (c.summaryShort || c.errorReason || "—")),
+        el("div",{class:"calls-row__cell",style:"display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible;position:relative;"}, statusBadge(c.status),
+          proc ? el("span",{class:"muted xs", style:"font-variant-numeric:tabular-nums;"}, progressPct(c)+"%") : null,
+          proc ? el("div",{class:"pbar pbar--mini"}, el("span",{style:"width:"+progressPct(c)+"%"})) : null,
+          canStart ? el("button",{class:"btn btn-primary btn-sm calls-act", title:"Зробити виписку",
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
               try { const ok = await startCallAnalysis(c); if (ok) toast("Передано на виконання","ok"); else b.disabled=false; }
-              catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null,
-          ICONS.chevronRight())));
+              catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null),
+        el("div",{}),
+        el("div",{style:"color:var(--text-faint);text-align:right;"}, ICONS.chevronRight())));
     });
   }
   if (window.__adminCallsListener) window.removeEventListener(CALLS_CHANGED_EVT, window.__adminCallsListener);
@@ -2327,11 +2383,11 @@ function renderAdminCallsView(root, tabs){
       el("button",{class:"btn btn-primary", onclick:()=>{ window.__addCallPreset = true; location.hash = "#/calls/new"; }}, ICONS.plus(), "Додати розмову")),
     el("div",{style:"margin-bottom:var(--s-4);"}, tabs),
     el("div",{class:"filters"},
-      el("input",{type:"text",placeholder:"Пошук...",class:"input input--search",value:callsState.search,
-        oninput:(e)=>{ callsState.search = e.target.value.toLowerCase(); paint(); }}),
-      dateRangeBtn({ start: callsState.from, end: callsState.to,
+      el("input",{type:"text",placeholder:"Пошук...",class:"input input--search",value:adminState.search,
+        oninput:(e)=>{ adminState.search = e.target.value.toLowerCase(); paint(); }}),
+      dateRangeBtn({ start: adminState.from, end: adminState.to,
         defaultRange: () => { const d=new Date(); return { start:new Date(d.getFullYear(), d.getMonth(), 1), end:d }; },
-        onChange: ({start,end}) => { callsState.from=start; callsState.to=end; paint(); } })),
+        onChange: ({start,end}) => { adminState.from=start; adminState.to=end; paint(); } })),
     listWrap);
   paint();
 }
@@ -3457,7 +3513,7 @@ function renderSettings(root){
     el("div",{class:"muted small",style:"line-height:1.5;"},"Кнопка-«запобіжник»: поки пауза, запити до ШІ не відправляються. Розмови завантажуються й розшифровуються, але чекають аналізу."));
 
   // ---- Журнал дій ----
-  const ACTION_LBL = { start_analysis:"запустив аналіз", restart_analysis:"перезапустив аналіз", cancel_call:"скасував обробку", chat_question:"поставив питання ШІ-чату",
+  const ACTION_LBL = { start_analysis:"запустив аналіз", restart_analysis:"перезапустив аналіз", retranscribe:"запустив якісну розшифровку", cancel_call:"скасував обробку", chat_question:"поставив питання ШІ-чату",
     login_failed:"невдала спроба входу",auto_delete_product:"продукт видалено автоматично (14 днів у прихованих)",ai_limit_set:"змінив ліміт ШІ",save_script:"змінив",add_product:"додав продукт",delete_user:"видалив менеджера",restore_user:"відновив менеджера",purge_history:"стер історію розмов",remove_user_fully:"повністю прибрав менеджера",remove_product:"прибрав продукт",restore_product:"повернув продукт", ai_pause:"зупинив ШІ",ai_block_user:"закрив доступ до ШІ для",ai_unblock_user:"відкрив доступ до ШІ для",change_password:"змінив свій пароль",reset_password_mail:"надіслав лист для скидання пароля",set_ai_limit:"змінив ліміт витрат ШІ", ai_resume:"увімкнув ШІ",ai_resume_skip_queue:"увімкнув ШІ без аналізу черги", create_user:"створив користувача", change_role:"змінив роль", youtube_connect:"почав(-ла) підключення YouTube (код отримано)",youtube_connect_ok:"підключив(-ла) YouTube ✓",youtube_connect_fail:"не вдалося підключити YouTube ✗",youtube_connect_cancel:"скасував(-ла) підключення YouTube",youtube_reauth_needed:"YouTube потрібно підключити знову ⚠",login:"зайшов(-ла) в акаунт",logout:"вийшов(-ла) з акаунта" };
   const histList = el("div",{style:"display:flex;flex-direction:column;"});
   const histSel = el("select",{class:"input",style:"max-width:200px;"},

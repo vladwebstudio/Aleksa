@@ -1435,12 +1435,12 @@ function chooseRunMode(c){
   return new Promise(resolve => {
     const hasTx = !!c.transcriptReady;
     const opts = [
-      { key:"analysis", title: hasTx ? "Лише аналіз" : "Розшифровка + аналіз (звичайна)",
+      { key:"analysis", title: hasTx ? "Лише аналіз (базовий)" : "Розшифровка + аналіз (звичайна)",
         text: hasTx ? "Береться вже готова розшифровка, ШІ робить аналіз заново. Найшвидше й дешево." : "Звичайна швидка розшифровка, далі аналіз." },
-      { key:"hq_full", title:"Розшифровка наново (якісна) + аналіз",
-        text:"Запис знову завантажується й розшифровується точніше: слова й імена розпізнаються краще, але це триває довше. Потім ШІ робить аналіз." },
-      { key:"hq_only", title:"Лише розшифровка наново (якісна), без аналізу",
-        text:"Коли потрібні саме слова, а аналіз не потрібен: точніша розшифровка, довше за звичайну. ШІ не витрачається, старий аналіз (якщо був) лишається." },
+      { key:"hq_full", title:"Розшифровка заново (якісна) + аналіз",
+        text:"Запис знову завантажується й розшифровується заново, точніше: слова й імена розпізнаються краще, але це триває довше. Потім ШІ робить аналіз." },
+      { key:"hq_only", title:"Лише розшифровка заново (якісна), без аналізу",
+        text:"Коли потрібні лише слова, а аналіз не потрібен: точніша розшифровка, довше за звичайну. ШІ не витрачається, старий аналіз (якщо був) лишається." },
     ];
     let sel = "analysis";
     const done = v => { bg.remove(); resolve(v); };
@@ -1449,10 +1449,19 @@ function chooseRunMode(c){
         el("div",{class:"run-opt__t"}, o.title), el("div",{class:"run-opt__d"}, o.text));
       return { key:o.key, el:r };
     });
+    // базово видно лише «Лише аналіз»; решта — після кнопки «Ще»
+    rows.forEach((x,i)=>{ if (i>0) x.el.style.display = "none"; });
+    const moreBtn = el("button",{class:"btn btn-ghost btn-sm", type:"button", style:"margin:0 0 14px;", onclick:()=>{
+      const open = rows[1].el.style.display==="none";
+      rows.forEach((x,i)=>{ if (i>0) x.el.style.display = open ? "" : "none"; });
+      if (!open) { sel = "analysis"; rows.forEach(x=>x.el.classList.toggle("is-on", x.key===sel)); }
+      moreBtn.textContent = open ? "Менше" : "Ще…";
+    }}, "Ще…");
     const bg = el("div",{class:"modal-bg", onclick:(e)=>{ if (e.target===bg) done(null); }},
       el("div",{class:"modal", style:"max-width:520px;"},
         el("h2",{}, "Як запустити «"+(c.client||c.title||"розмову")+"»?"),
-        el("div",{style:"display:flex;flex-direction:column;gap:8px;margin:10px 0 16px;"}, rows.map(x=>x.el)),
+        el("div",{style:"display:flex;flex-direction:column;gap:8px;margin:10px 0 10px;"}, rows.map(x=>x.el)),
+        moreBtn,
         el("div",{class:"modal-actions"},
           el("button",{class:"btn btn-ghost", onclick:()=>done(null)},"Ні, скасувати"),
           el("button",{class:"btn btn-primary", onclick:()=>done(sel)},"Запустити"))));
@@ -3287,7 +3296,7 @@ function renderSettings(root){
   const workerInfo = el("div",{class:"muted small",style:"line-height:1.5;"},"");
   const srvInfo = el("div",{style:"display:flex;flex-direction:column;gap:8px;margin-top:8px;"});
   (function(){   // авто-обслуговування сервера: health/server (пише сам сервер раз на зміну / раз на годину)
-    let x = null, loaded = false, histOpen = false, histN = 10;
+    let x = null, loaded = false;
     function paintSrv(){
       srvInfo.textContent = "";
       const add = (bg,fg,title,cause,action)=>{
@@ -3317,23 +3326,28 @@ function renderSettings(root){
       { // історія подій: що з'являлось і зникало (пише сервер, останні 40)
         const log = Array.isArray(x.log) ? x.log.slice().reverse() : [];
         const fmtT = iso => { try { return new Date(iso).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); } catch(_){ return iso; } };
-        const box = el("div",{style:"display:"+(histOpen?"flex":"none")+";flex-direction:column;gap:6px;margin-top:6px;"});
-        const shown = log.slice(0, histN);
-        if (!log.length) box.appendChild(el("div",{class:"muted small"},"Подій поки не було — запис почнеться з наступної несправності."));
-        shown.forEach(e => {
-          const col = e.kind==="end" ? "var(--success)" : (e.level==="error" ? "var(--danger)" : "var(--warn)");
-          box.appendChild(el("div",{style:"display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.45;"},
-            el("span",{style:"flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px;background:"+col+";"}),
-            el("div",{style:"min-width:0;"},
-              el("div",{}, el("span",{class:"muted xs"}, fmtT(e.ts)+" · "), e.kind==="end" ? "Усунено: "+e.title : e.title),
-              (e.kind!=="end" && e.cause) ? el("div",{class:"muted xs",style:"overflow-wrap:anywhere;"}, e.cause) : null)));
-        });
-        if (log.length > histN) box.appendChild(el("button",{class:"btn btn-ghost btn-sm",style:"align-self:flex-start;",onclick:()=>{ histN += 10; paintSrv(); }}, "Показати ще ("+(log.length-histN)+")"));
+        const openHist = ()=>{
+          const body = el("div",{style:"display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;margin:10px 0 14px;padding-right:4px;"});
+          if (!log.length) body.appendChild(el("div",{class:"muted small"},"Подій поки не було — запис почнеться з наступної несправності."));
+          log.forEach(e => {
+            const col = e.kind==="end" ? "var(--success)" : (e.level==="error" ? "var(--danger)" : "var(--warn)");
+            body.appendChild(el("div",{style:"display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.45;"},
+              el("span",{style:"flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px;background:"+col+";"}),
+              el("div",{style:"min-width:0;"},
+                el("div",{}, el("span",{class:"muted xs"}, fmtT(e.ts)+" · "), e.kind==="end" ? "Усунено: "+e.title : e.title),
+                (e.kind!=="end" && e.cause) ? el("div",{class:"muted xs",style:"overflow-wrap:anywhere;"}, e.cause) : null)));
+          });
+          const bg = el("div",{class:"modal-bg", onclick:(ev)=>{ if (ev.target===bg) bg.remove(); }},
+            el("div",{class:"modal", style:"max-width:560px;"},
+              el("h2",{}, "Історія подій сервера"),
+              body,
+              el("div",{class:"modal-actions"}, el("button",{class:"btn btn-primary", onclick:()=>bg.remove()}, "Закрити"))));
+          document.body.appendChild(bg);
+        };
         const cnt = list.length;
         srvInfo.appendChild(el("div",{style:"display:flex;align-items:center;gap:10px;flex-wrap:wrap;"},
-          el("button",{class:"btn btn-ghost btn-sm", onclick:()=>{ histOpen = !histOpen; paintSrv(); }}, (histOpen?"Сховати історію":"Історія подій"+(log.length?" ("+log.length+")":""))),
+          el("button",{class:"btn btn-ghost btn-sm", onclick:openHist}, "Історія подій"+(log.length?" ("+log.length+")":"")),
           el("span",{class:"muted xs"}, cnt ? "Зараз активних проблем: "+cnt : "Зараз проблем немає")));
-        srvInfo.appendChild(box);
       }
       if (x.stats){
         const t = x.stats, parts = [];
@@ -3809,7 +3823,7 @@ function renderCallDetail(root, callId){
     if (t==="summary" && isAdminMeeting){
       const a = d.adminA;
       if (!a) return emptyCard("Підсумок", call.status==="done" ? "Виписки ще немає" : "Розмова ще не оброблена — виписка з'явиться тут сама");
-      const tsB = x => x && x.ts ? [" ", tcChip(x.ts)] : [];
+      const tsB = x => x && x.ts ? [" ", el("button",{class:"tc", type:"button", title:"Відкрити в транскрипті", onclick:()=>jumpToTranscript(x.ts)}, x.ts)] : [];
       const list = (items, render) => (items && items.length) ? el("ul",{style:"margin:0;padding-left:20px;line-height:1.6;font-size:13.5px;"}, items.map(render)) : el("div",{class:"muted small"},"—");
       return el("div",{},
         el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Коротко"), el("div",{class:"cv-summary__p",style:"white-space:pre-wrap;"}, ...tcLinks(a.summary || "—"))),

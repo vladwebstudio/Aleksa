@@ -444,6 +444,12 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .yt-box ol{margin:8px 0 0 18px;padding:0;font-size:13px;line-height:1.55;color:var(--text-muted)}
 .yt-box li{margin-bottom:4px}
 .modal.modal-wide{max-width:720px}
+.ov-all{display:flex;flex-direction:column;padding:0 !important;overflow:hidden !important;height:min(680px,calc(100dvh - 40px));max-height:calc(100dvh - 40px)}
+.ov-all__head{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 20px 12px 24px;border-bottom:1px solid var(--border);background:var(--surface)}
+.ov-all__list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px 10px 20px 24px}
+.ov-all__list::-webkit-scrollbar{width:12px}
+.ov-all__list::-webkit-scrollbar-track{background:rgba(128,128,128,.14);border-radius:8px}
+.ov-all__list::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:8px;border:2px solid transparent;background-clip:content-box;min-height:40px}
 .modal h2{margin:0 0 16px;font-size:18px;letter-spacing:-0.01em}
 .modal-row{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
 .modal-row > label{font-size:12.5px;color:var(--text-muted);font-weight:500}
@@ -2205,13 +2211,8 @@ function renderOverview(root){
     const anyCrit = groups.some(g => g.critCount > 0);
     const shown = groups.slice(0, 3);
     const plr = (n,a,b,c) => (n%10===1 && n%100!==11) ? a : (n%10>=2 && n%10<=4 && (n%100<10||n%100>=20)) ? b : c;
-    leftBlock.replaceChildren(
-      el("div",{class:"section-title"},
-        el("span",{}, isMgrView() ? (anyCrit?"Мої критичні помилки":"Мої слабкі місця") : (anyCrit?"Критичні помилки менеджерів":"Моменти менеджерів"))),
-      el("div",{}, loading ? el("div",{class:"empty"}, "Завантаження…")
-      : shown.length === 0
-        ? el("div",{class:"empty"}, "За цей період проблемних моментів немає. Усе чисто.")
-        : shown.map(g => {
+    const blockTitle = isMgrView() ? (anyCrit?"Мої критичні помилки":"Мої слабкі місця") : (anyCrit?"Критичні помилки менеджерів":"Моменти менеджерів");
+    const mkRow = (g, onNav) => {
             const call = g.call;
             const mgr  = userByEmail(call.managerEmail);
             const total = g.weaknesses.length;
@@ -2224,7 +2225,7 @@ function renderOverview(root){
             const previewItems = sortedW.slice(0, 2).map(w => (w.title||"").trim()).filter(Boolean);
             const rest = total - previewItems.length;
             const previewTxt = previewItems.join(" · ") + (rest > 0 ? "  · +"+rest+" ще" : "");
-            return el("div",{class:"sev-row"+(isCrit?" is-danger":""), onclick:()=>{ callDetailState.tab = "weak"; location.hash = "#/calls/"+call.id; }},
+            return el("div",{class:"sev-row"+(isCrit?" is-danger":""), onclick:()=>{ if (onNav) onNav(); callDetailState.tab = "weak"; location.hash = "#/calls/"+call.id; }},
               userAva(mgr),
               el("div",{style:"min-width:0;"},
                 el("div",{class:"sev-row__title"}, titleTxt),
@@ -2233,7 +2234,27 @@ function renderOverview(root){
               el("div",{style:"text-align:right;align-self:start;"},
                 el("div",{class:"muted xs"}, call.startedAt?fmtTime(call.startedAt):""))
             );
-          }))
+    };
+    const openAll = () => {
+      const bg = el("div",{class:"modal-bg", onclick:(e)=>{ if (e.target===bg) bg.remove(); }},
+        el("div",{class:"modal modal-wide ov-all",style:"max-width:720px;"},
+          el("div",{class:"ov-all__head"},
+            el("div",{style:"min-width:0;"},
+              el("h2",{style:"margin:0 0 4px;"}, blockTitle),
+              el("div",{class:"muted small"}, "За "+periodLabel+" · розмов: "+groups.length)),
+            el("button",{class:"btn btn-ghost","aria-label":"Закрити",title:"Закрити",style:"flex:none;width:36px;height:36px;padding:0;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;",onclick:()=>bg.remove()},"✕")),
+          el("div",{class:"ov-all__list"}, groups.map(g => mkRow(g, ()=>bg.remove())))));
+      document.body.appendChild(bg);
+    };
+    leftBlock.replaceChildren(
+      el("div",{class:"section-title"}, el("span",{}, blockTitle)),
+      el("div",{}, loading ? el("div",{class:"empty"}, "Завантаження…")
+      : shown.length === 0
+        ? el("div",{class:"empty"}, "За цей період проблемних моментів немає. Усе чисто.")
+        : shown.map(g => mkRow(g))),
+      (!loading && groups.length > 3)
+        ? el("button",{class:"btn btn-ghost",style:"width:100%;margin-top:10px;",onclick:openAll}, "Переглянути інші (+"+(groups.length-3)+")")
+        : null
     );
   }
   paintLeft([], true);

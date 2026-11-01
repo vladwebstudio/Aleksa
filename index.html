@@ -2252,9 +2252,9 @@ function renderOverview(root){
       : shown.length === 0
         ? el("div",{class:"empty"}, "За цей період проблемних моментів немає. Усе чисто.")
         : shown.map(g => mkRow(g))),
-      (!loading && groups.length > 3)
-        ? el("button",{class:"btn btn-ghost",style:"width:100%;margin-top:10px;",onclick:openAll}, "Переглянути інші (+"+(groups.length-3)+")")
-        : null
+      ...((!loading && groups.length > 3)
+        ? [el("button",{class:"btn btn-ghost",style:"width:100%;margin-top:10px;",onclick:openAll}, "Переглянути інші (+"+(groups.length-3)+")")]
+        : [])
     );
   }
   paintLeft([], true);

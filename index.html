@@ -2368,22 +2368,29 @@ function renderCalls(root){
     const tabMatch = (callTabs().find(t=>t.key===callsState.tab)||callTabs()[0]).match;
     const from = callsState.from ? new Date(callsState.from.getFullYear(),callsState.from.getMonth(),callsState.from.getDate(),0,0,0) : null;
     const to   = callsState.to   ? new Date(callsState.to.getFullYear(),callsState.to.getMonth(),callsState.to.getDate(),23,59,59)    : null;
-    const base = callsAll().filter(c => {
+    const passBase = c => {
       if (callsState.manager!=="all" && c.managerEmail!==callsState.manager) return false;
       if (callsState.search && !(c.client||c.title||"").toLowerCase().includes(callsState.search)) return false;
+      return true;
+    };
+    const inDates = c => {
       const t = new Date(c.startedAt).getTime();
       if (from && t<from.getTime()) return false;
       if (to && t>to.getTime()) return false;
       return true;
-    });
-    // счётчики вкладок = по тем же фильтрам (менеджер / поиск / дата), что и список
+    };
+    const base = callsAll().filter(c => passBase(c) && inDates(c));
+    // «В роботі» — це те, що обробляється просто зараз: дата його не обмежує (інакше при вибраному «сьогодні» запущена вчорашня розмова зникала б)
+    const workTab = CALL_TABS.find(t => t.key==="working");
+    const working = callsAll().filter(c => passBase(c) && workTab.match(c));
+    // счётчики вкладок = по тем же фильтрам (менеджер / поиск / дата), что и список; «В роботі» — без дати
     callTabs().forEach(t => {
       const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
-      if (n) n.textContent = String(base.filter(t.match).length);
+      if (n) n.textContent = String(t.key==="working" ? working.length : base.filter(t.match).length);
     });
     { const an = tabs.querySelector('.tab-count[data-k="admin_calls"]'); if (an) an.textContent = String(adminCallsAll().filter(adminInRange).length); }
     const byStart = (a,b)=> new Date(b.startedAt)-new Date(a.startedAt);
-    const list = base.filter(tabMatch).sort(byStart);
+    const list = (callsState.tab==="working" ? working : base.filter(tabMatch)).sort(byStart);
 
     listWrap.replaceChildren();
     if (list.length===0){

@@ -1648,6 +1648,11 @@ function cvAttachJump(ov, modal, body){
   upd();
 }
 
+// «якісна» у статусі лише для запуску, який справді поставив прапор (hqAt збігається з restartedAt): застарілий прапор менеджерського перезапуску не показуємо
+function hqIsLive(c){
+  if (!c || !c.hq) return false;
+  try { return !c.hqAt || (c.restartedAt && c.hqAt.toMillis && c.restartedAt.toMillis && c.hqAt.toMillis()===c.restartedAt.toMillis()); } catch(_){ return false; }
+}
 function statusBadge(status, hqMark){
   if (status==="live") return el("span",{class:"badge badge--live"}, "В ЕФІРІ");
   const map = { queued:"queue", ended:"queue", queued_for_analysis:"analysis", transcribed:"analysis", downloading:"trans", transcribing:"trans", analyzing:"analysis", done:"done", error:"queue", skipped_short:"queue", canceled:"queue", idle:"queue", no_show:"queue" };
@@ -2086,7 +2091,7 @@ function openCallDetail(call){ location.hash = '#/calls/' + call.id; return;
           el("div",{style:"font-weight:700;font-size:18px;"}, "Розмова · " + (call.client || call.title || "")),
           el("div",{class:"muted small", style:"margin-top:4px;"},
             fmtDate(call.startedAt)+" о "+fmtTime(call.startedAt)+" · "+(mgr.name||mgr.email)+" · "+(call.durationSec?fmtDur(call.durationSec):"—"))),
-        statusBadge(call.status, call.status==="done" ? call.txHq : call.hq)
+        statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call))
       ),
       call.status==="error" ? el("div",{class:"card",style:"background:var(--danger-soft);border-color:var(--danger);margin-bottom:14px;"},
         el("div",{style:"font-weight:600;color:var(--danger);display:flex;align-items:center;gap:6px;"}, ICONS.danger(), "Помилка обробки"),
@@ -3627,7 +3632,7 @@ function renderSettings(root){
         if (x.lastFix) srvInfo.lastChild.appendChild(el("div",{style:"margin-top:2px;font-weight:400;"},"Сервер сам усунув несправність: "+x.lastFix));
       }
       { // історія подій: що з'являлось і зникало (пише сервер, останні 40)
-        const log = Array.isArray(x.log) ? x.log.slice().reverse() : [];
+        const log = Array.isArray(x.log) ? x.log.filter(e=>{ const ms = Date.parse(e && e.ts); return !ms || (Date.now()-ms) <= ((e.level==="error" ? 5 : 3)*86400000); }).reverse() : [];   // самоочистка: жовті старші за 3 доби і червоні старші за 5 діб не показуємо
         const fmtT = iso => { try { return new Date(iso).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); } catch(_){ return iso; } };
         const openHist = ()=>{
           const body = el("div",{style:"display:flex;flex-direction:column;gap:8px;max-height:min(60vh,340px);overflow-y:auto;margin:10px 0 14px;padding-right:6px;"});
@@ -4724,7 +4729,7 @@ function openCallFullscreen(callId, soft){
           el("span",{class:"cv-kind"}, call.source==="youtube_watcher" ? "YouTube ефір" : "Картка розмови"),
           el("span",{class:"cv-sep"}, " · "),
           el("span",{class:"cv-name"}, call.client || call.title || call.videoId || "")] : "Розмова"),
-        call ? (()=>{ const b = statusBadge(call.status, call.status==="done" ? call.txHq : call.hq); b.classList.add("cv-hstat"); return b; })() : null,
+        call ? (()=>{ const b = statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call)); b.classList.add("cv-hstat"); return b; })() : null,
         call && call.status==="skipped_short" ? el("span",{class:"muted small cv-hnote"}, "< 30 хв — автоматично не обробляється") : null),
       call ? el("div",{class:"cv-modal__sub"},
         (mgr.name||mgr.email) + " · " + fmtDate(call.startedAt) + " о " + fmtTime(call.startedAt) + (call.durationSec?" · "+fmtTimeRange(call.startedAt, call.durationSec, call.status):""))

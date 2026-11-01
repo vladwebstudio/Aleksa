@@ -1609,12 +1609,15 @@ async function startCallAnalysis(c){
   let upd;
   if (mode==="hq_full" || mode==="hq_only"){
     upd = { status:"ended", stage:"waiting_worker", audioReady:false, transcriptReady:false, manualStart:true, error:null, progress:0,
-            hq:true, transcribeOnly: mode==="hq_only" ? true : FV.delete(), wordCount:FV.delete(), emptyAt:FV.delete() };
+            hq:true, hqAt:FV.serverTimestamp(), transcribeOnly: mode==="hq_only" ? true : FV.delete(), wordCount:FV.delete(), emptyAt:FV.delete() };
   } else {
     upd = c.transcriptReady
       ? { status:"queued_for_analysis", stage:"waiting_ai", manualStart:false, error:null }
       : { status: c.audioReady ? "queued" : "ended", stage:"waiting_worker", manualStart:true, error:null };
   }
+  // звичайний запуск адміном стирає старі прапори «якісної» (від скасованого/невдалого якісного запуску); менеджеру правила цього не дозволяють,
+  // тому воркер сам відкидає застарілий hq (hqAt ≠ restartedAt)
+  if (mode==="analysis" && activeUser.role!==ROLES.MANAGER) Object.assign(upd, { hq:FV.delete(), hqAt:FV.delete(), transcribeOnly:FV.delete() });
   upd.restartedBy = activeUser.uid; upd.restartedAt = FV.serverTimestamp();
   if (mode!=="hq_only") upd.analysisRequestedBy = activeUser.email;   // воркер списує витрату ШІ з місячного ліміту цього менеджера
   await db.collection("calls").doc(c.id).update(upd);

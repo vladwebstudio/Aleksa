@@ -2490,7 +2490,7 @@ function renderAdminCallsView(root, tabs){
     { const f0 = callsState.from ? new Date(callsState.from.getFullYear(),callsState.from.getMonth(),callsState.from.getDate(),0,0,0).getTime() : null;
       const e0 = callsState.to ? new Date(callsState.to.getFullYear(),callsState.to.getMonth(),callsState.to.getDate(),23,59,59).getTime() : null;
       callTabs().forEach(t => { const n = tabs.querySelector('.tab-count[data-k="'+t.key+'"]');
-        if (n) n.textContent = String(callsAll().filter(c=>{ if(callsState.manager!=="all" && c.managerEmail!==callsState.manager) return false; const tt=new Date(c.startedAt).getTime(); return !(f0!=null&&tt<f0) && !(e0!=null&&tt>e0); }).filter(t.match).length); }); }
+        if (n) n.textContent = String(callsAll().filter(c=>{ if(callsState.manager!=="all" && c.managerEmail!==callsState.manager) return false; if (t.key==="working") return true; const tt=new Date(c.startedAt).getTime(); return !(f0!=null&&tt<f0) && !(e0!=null&&tt>e0); }).filter(t.match).length); }); }
     const an = tabs.querySelector('.tab-count[data-k="admin_calls"]'); if (an) an.textContent = String(fl.length);
     const list = fl;
     listWrap.replaceChildren();

@@ -157,6 +157,7 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .badge--live::before{content:"";width:6px;height:6px;border-radius:50%;background:#DC2626;animation:pulse 1.4s infinite}
 .badge--queue{background:var(--badge-queue-bg);color:var(--badge-queue-tx)}
 .badge--retry{background:var(--warn-soft);color:var(--warn-text)}
+.badge--priv{background:var(--danger-soft);color:var(--danger)}
 .badge--trans{background:var(--badge-trans-bg);color:var(--badge-trans-tx)}
 .badge--analysis{background:var(--badge-analysis-bg);color:var(--badge-analysis-tx)}
 .badge--done{background:var(--badge-done-bg);color:var(--badge-done-tx)}
@@ -1603,6 +1604,11 @@ function chooseRunMode(c){
 }
 async function startCallAnalysis(c){
   if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return false; }
+  if (isPrivateCall(c)){
+    const go = await confirmModal("Приватне відео — обробка не почнеться",
+      "Це відео приватне на YouTube, тому сервер не зможе його завантажити, і розмова одразу знову отримає статус «Приватне відео». Спочатку власник каналу має в YouTube Studio поставити «Доступ за посиланням». Якщо доступ уже відкрито, можна спробувати.", "Доступ відкрито, спробувати");
+    if (!go) return false;
+  }
   let mode = "analysis";
   if (activeUser && activeUser.role!==ROLES.MANAGER){
     mode = await chooseRunMode(c);
@@ -1664,6 +1670,14 @@ function hqIsLive(c){
 // Щоб це не виглядало як «зламалось / Не оброблено», показуємо спокійний жовтий статус «Повтор через N хв».
 const YT_BLOCK_RX = /sign in to confirm|not a bot|confirm you|HTTP Error (403|429)|Requested format is not available/i;
 const RETRY_TIP = "YouTube тимчасово не віддає відео. Сервер повторить сам, нічого натискати не треба.";
+// Приватне відео на YouTube: повторювати марно, потрібно, щоб власник каналу відкрив «Доступ за посиланням».
+const PRIVATE_TIP = "Відео приватне на YouTube, сервер не може його завантажити. Власник каналу має в YouTube Studio поставити «Доступ за посиланням», потім тут натиснути «Обробити заново».";
+function isPrivateCall(c){
+  if (!c || c.audioReady) return false;
+  // позначку dlReason ставить сервер; вона лишається, навіть якщо звонок скасували або перезапустили (поки не скачається / не зміниться причина)
+  if (c.dlReason === "private" && ["error","canceled","idle","skipped_short"].includes(c.status)) return true;
+  return c.status === "error" && /this video is private|private video/i.test(String(c.error || ""));
+}
 function retryText(at){
   if (!at) return "Повтор скоро";
   const sec = at - Date.now()/1000;
@@ -1685,10 +1699,17 @@ if (!window.__retryTick) window.__retryTick = setInterval(()=>{   // оновл�
   document.querySelectorAll("[data-retry-at]").forEach(n=>{ const t = retryText(Number(n.getAttribute("data-retry-at"))); if (n.textContent !== t) n.textContent = t; });
 }, 15000);
 
-function statusBadge(status, hqMark, call){
+function statusBadge(status, hqMark, call, detail){   // detail=true — лише в картці розмови (там показуємо «✓ Завантажено · черга»)
   if (status==="live") return el("span",{class:"badge badge--live"}, "В ЕФІРІ");
+  if (call && isPrivateCall(call)) return el("span",{class:"badge badge--priv", title: PRIVATE_TIP}, "Приватне відео");
   const ri = call ? retryInfo(call) : null;
   if (ri){ const b = el("span",{class:"badge badge--retry", title: RETRY_TIP}, ri.text); if (ri.at) b.setAttribute("data-retry-at", String(ri.at)); return b; }
+  if (detail && call && (status === "queued" || status === "ended")){
+    if (call.audioReady && !call.transcriptReady)
+      return el("span",{class:"badge badge--queue", title:"Аудіо вже завантажено. Чекає своєї черги на транскрибацію (розшифровка йде по одній розмові)."}, "✓ Завантажено · черга");
+    if (!call.audioReady)
+      return el("span",{class:"badge badge--queue", title:"Аудіо ще не завантажено. Завантаження йде по одній розмові."}, "Черга · завантаження");
+  }
   const map = { queued:"queue", ended:"queue", queued_for_analysis:"analysis", transcribed:"analysis", downloading:"trans", transcribing:"trans", analyzing:"analysis", done:"done", error:"queue", skipped_short:"queue", canceled:"queue", idle:"queue", no_show:"queue" };
   return el("span",{class:"badge badge--"+(map[status]||"queue")}, (STATUS_LBL[status]||status) + (hqMark && (status==="done"||status==="transcribing"||status==="downloading") ? " (якісна)" : ""));
 }
@@ -1697,13 +1718,25 @@ function statusBadge(status, hqMark, call){
 const PROC_STATES = ["downloading","transcribing","analyzing"];
 const STEP_LBL = { downloading:"Завантаження аудіо", transcribing:"Транскрибація", analyzing:"Аналіз" };
 function progressPct(c){ return typeof c.progress==="number" ? Math.max(0,Math.min(100,Math.round(c.progress))) : 0; }
+// Який крок обробки зараз: 0 завантаження, 1 транскрибація, 2 аналіз; -1 — не в обробці.
+// Для розмови, що стоїть у черзі, це наступний крок, який вона чекає (щоб було видно, що раніші кроки вже ✓).
+function callStepIdx(c){
+  if (!c) return -1;
+  if (PROC_STATES.includes(c.status)) return PROC_STATES.indexOf(c.status);
+  if (c.status === "queued_for_analysis" || c.status === "transcribed") return 2;
+  if (c.status === "queued" || c.status === "ended") return (c.audioReady && !c.transcriptReady) ? 1 : 0;
+  return -1;
+}
 function cvProgressNode(c){
-  const i = PROC_STATES.indexOf(c.status), pct = progressPct(c);
+  const isProc = PROC_STATES.includes(c.status), i = callStepIdx(c), pct = isProc ? progressPct(c) : 0;
+  const ri = retryInfo(c);
+  const top = ri ? ri.text : (isProc ? (STEP_LBL[c.status]||"") : "В черзі");
   return el("div",{class:"cv-prog", "data-cv-pb":c.id},
-    el("div",{class:"cv-prog__top"}, el("b",{}, STEP_LBL[c.status]||""), el("span",{class:"cv-prog__pct"}, pct+"%")),
+    el("div",{class:"cv-prog__top"}, el("b",{}, top), el("span",{class:"cv-prog__pct"}, isProc ? pct+"%" : "")),
     el("div",{class:"pbar"}, el("span",{style:"width:"+pct+"%"})),
     el("div",{class:"cv-prog__steps", style:"margin-top:8px;"},
-      PROC_STATES.map((st,k)=> el("span",{class: k<i?"is-done":(k===i?"is-on":"")}, (k<i?"✓ ":(k===i?"● ":"○ "))+STEP_LBL[st]))));
+      PROC_STATES.map((st,k)=> el("span",{class: k<i?"is-done":(k===i?"is-on":"")},
+        (k<i?"✓ ":(k===i?(isProc?"● ":"◌ "):"○ ")) + STEP_LBL[st] + ((k===i && !isProc) ? " (в черзі)" : "")))));
 }
 // Живі відсотки в списку «Розмови»: оновлюємо лише цифру й смужку на місці (без перемальовування списку й без додаткових читань —
 // дані вже прийшли від єдиної підписки на calls).
@@ -1719,6 +1752,7 @@ function listProgressUpdate(){
   });
 }
 function cvProgressUpdate(c){
+  if (!PROC_STATES.includes(c.status)) return;   // у черзі процент не показуємо
   const n = document.querySelector('[data-cv-pb="'+c.id+'"]'); if(!n) return;
   const pct = progressPct(c);
   n.querySelector(".cv-prog__pct").textContent = pct+"%"; n.querySelector(".pbar>span").style.width = pct+"%";
@@ -2125,7 +2159,7 @@ function openCallDetail(call){ location.hash = '#/calls/' + call.id; return;
           el("div",{style:"font-weight:700;font-size:18px;"}, "Розмова · " + (call.client || call.title || "")),
           el("div",{class:"muted small", style:"margin-top:4px;"},
             fmtDate(call.startedAt)+" о "+fmtTime(call.startedAt)+" · "+(mgr.name||mgr.email)+" · "+(call.durationSec?fmtDur(call.durationSec):"—"))),
-        statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call), call)
+        statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call), call, true)
       ),
       call.status==="error" ? el("div",{class:"card",style:"background:var(--danger-soft);border-color:var(--danger);margin-bottom:14px;"},
         el("div",{style:"font-weight:600;color:var(--danger);display:flex;align-items:center;gap:6px;"}, ICONS.danger(), "Помилка обробки"),
@@ -4778,7 +4812,7 @@ function openCallFullscreen(callId, soft){
           el("span",{class:"cv-kind"}, call.source==="youtube_watcher" ? "YouTube ефір" : "Картка розмови"),
           el("span",{class:"cv-sep"}, " · "),
           el("span",{class:"cv-name"}, call.client || call.title || call.videoId || "")] : "Розмова"),
-        call ? (()=>{ const b = statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call), call); b.classList.add("cv-hstat"); return b; })() : null,
+        call ? (()=>{ const b = statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call), call, true); b.classList.add("cv-hstat"); return b; })() : null,
         call && call.status==="skipped_short" ? el("span",{class:"muted small cv-hnote"}, "< 30 хв — автоматично не обробляється") : null),
       call ? el("div",{class:"cv-modal__sub"},
         (mgr.name||mgr.email) + " · " + fmtDate(call.startedAt) + " о " + fmtTime(call.startedAt) + (call.durationSec?" · "+fmtTimeRange(call.startedAt, call.durationSec, call.status):""))
@@ -4792,7 +4826,10 @@ function openCallFullscreen(callId, soft){
     el("button",{class:"cv-modal__close", title:"Закрити", onclick:()=>{ location.hash = "#/calls"; }}, ICONS.x())
   );
   modal.appendChild(header);
-  if (call && PROC_STATES.includes(call.status)) modal.appendChild(cvProgressNode(call));
+  if (call && callStepIdx(call) >= 0) modal.appendChild(cvProgressNode(call));
+  else if (call && isPrivateCall(call)) modal.appendChild(el("div",{class:"cv-prog", "data-cv-pb":call.id},
+    el("div",{class:"cv-prog__top"}, el("b",{}, "Приватне відео")),
+    el("div",{class:"muted small",style:"margin-top:6px;line-height:1.5;"}, PRIVATE_TIP)));
   if (prevOv){
     // замінюємо лише шапку, смугу прогресу і ліву колонку; відео та чат лишаються як були
     window.__cvStatus = call ? call.status : null;

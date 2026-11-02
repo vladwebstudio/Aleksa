@@ -1640,6 +1640,15 @@ async function startCallAnalysis(c){
   return true;
 }
 // Повертає true, якщо у розмови вже був готовий аналіз: тоді після скасування лишається СТАРИЙ аналіз і статус «Готово»
+// Підтвердження перед зупинкою/зняттям з черги (випадкове натискання ✕ раніше одразу скасовувало розмову)
+async function confirmStop(c){
+  const name = "«" + (c.client || c.title || "розмова") + "»";
+  const working = ["downloading","transcribing","analyzing"].includes(c.status);
+  return await confirmModal(working ? "Точно зупинити обробку?" : "Точно прибрати з черги?",
+    working ? "Обробка " + name + " буде зупинена, виконана на цьому кроці робота пропаде. Щоб продовжити, її доведеться запускати заново."
+            : name + " буде знято з черги і отримає статус «Скасовано». Щоб обробити, її доведеться запускати заново.",
+    working ? "Так, зупинити" : "Так, прибрати");
+}
 async function cancelCall(c){
   let keep = false;
   try { keep = !!c.transcriptReady && (await db.collection("calls").doc(c.id).collection("analysis").doc("main").get()).exists; } catch(_){}
@@ -2558,7 +2567,7 @@ function renderCalls(root){
               try { const ok = await startCallAnalysis(c); if (ok) toast("Передано на виконання","ok"); else b.disabled=false; }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null,
           ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(c.status) ? el("button",{class:"btn btn-ghost btn-sm calls-act", title:"Скасувати",
-            onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
+            onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; if (!(await confirmStop(c))) return; b.disabled=true;
               try { const keep = await cancelCall(c); toast(keep ? "Скасовано — лишився попередній аналіз" : "Скасовано","ok"); }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "✕") : null),
         el("div",{class:"calls-row__cell",style:"display:flex;justify-content:flex-end;align-items:center;"}, score!=null ? scoreRing(score, 40) : el("span",{class:"muted"},"—")),
@@ -4830,6 +4839,7 @@ function openCallFullscreen(callId, soft){
   const canCancel = call && ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(call.status);
   const cancelBtn = canCancel ? el("button",{class:"btn btn-ghost btn-sm", style:"margin-right:8px;",
     onclick: async (e)=>{
+      if (!(await confirmStop(call))) return;
       e.target.disabled = true; e.target.textContent = "Скасовую...";
       try {
         const keep = await cancelCall(call);

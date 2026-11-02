@@ -156,6 +156,7 @@ svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 .badge--live{background:var(--badge-live-bg);color:var(--badge-live-tx)}
 .badge--live::before{content:"";width:6px;height:6px;border-radius:50%;background:#DC2626;animation:pulse 1.4s infinite}
 .badge--queue{background:var(--badge-queue-bg);color:var(--badge-queue-tx)}
+.badge--retry{background:var(--warn-soft);color:var(--warn-text)}
 .badge--trans{background:var(--badge-trans-bg);color:var(--badge-trans-tx)}
 .badge--analysis{background:var(--badge-analysis-bg);color:var(--badge-analysis-tx)}
 .badge--done{background:var(--badge-done-bg);color:var(--badge-done-tx)}
@@ -1659,8 +1660,35 @@ function hqIsLive(c){
   if (!c || !c.hq) return false;
   try { return !c.hqAt || (c.restartedAt && c.hqAt.toMillis && c.restartedAt.toMillis && c.hqAt.toMillis()===c.restartedAt.toMillis()); } catch(_){ return false; }
 }
-function statusBadge(status, hqMark){
+// Автоповтор завантаження: коли YouTube тимчасово не віддає аудіо, сервер сам пробує ще раз (і лікує себе).
+// Щоб це не виглядало як «зламалось / Не оброблено», показуємо спокійний жовтий статус «Повтор через N хв».
+const YT_BLOCK_RX = /sign in to confirm|not a bot|confirm you|HTTP Error (403|429)|Requested format is not available/i;
+const RETRY_TIP = "YouTube тимчасово не віддає відео. Сервер повторить сам, нічого натискати не треба.";
+function retryText(at){
+  if (!at) return "Повтор скоро";
+  const sec = at - Date.now()/1000;
+  return sec > 50 ? "Повтор через " + Math.ceil(sec/60) + " хв" : "Повтор зараз";
+}
+function retryInfo(c){
+  if (!c) return null;
+  if (c.stage === "dl_retry" && (c.status === "ended" || c.status === "queued")){
+    const at = Number(c.dlRetryAt) || 0;
+    return { text: retryText(at), at: at };
+  }
+  if (c.status === "error" && YT_BLOCK_RX.test(String(c.error || ""))){   // усі спроби вичерпано, але сервер ще лікується й поверне в чергу
+    let up = 0; try { up = c.updatedAt && c.updatedAt.toMillis ? c.updatedAt.toMillis() : 0; } catch(_){}
+    if (up && Date.now() - up < 15*60000) return { text: "Повтор автоматично", at: 0 };
+  }
+  return null;
+}
+if (!window.__retryTick) window.__retryTick = setInterval(()=>{   // оновлюємо «через N хв» на місці, без перемальовування списку
+  document.querySelectorAll("[data-retry-at]").forEach(n=>{ const t = retryText(Number(n.getAttribute("data-retry-at"))); if (n.textContent !== t) n.textContent = t; });
+}, 15000);
+
+function statusBadge(status, hqMark, call){
   if (status==="live") return el("span",{class:"badge badge--live"}, "В ЕФІРІ");
+  const ri = call ? retryInfo(call) : null;
+  if (ri){ const b = el("span",{class:"badge badge--retry", title: RETRY_TIP}, ri.text); if (ri.at) b.setAttribute("data-retry-at", String(ri.at)); return b; }
   const map = { queued:"queue", ended:"queue", queued_for_analysis:"analysis", transcribed:"analysis", downloading:"trans", transcribing:"trans", analyzing:"analysis", done:"done", error:"queue", skipped_short:"queue", canceled:"queue", idle:"queue", no_show:"queue" };
   return el("span",{class:"badge badge--"+(map[status]||"queue")}, (STATUS_LBL[status]||status) + (hqMark && (status==="done"||status==="transcribing"||status==="downloading") ? " (якісна)" : ""));
 }
@@ -1888,7 +1916,7 @@ function renderYouTubeCallRow(c, bg){
     el("div",{style:"flex:1;min-width:0;"},
       el("div",{style:"font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"}, c.title || "(без назви)"),
       el("div",{class:"muted xs",style:"margin-top:2px;"},
-        dateStr + " · ", statusBadge(c.status || "ended"))),
+        dateStr + " · ", statusBadge(c.status || "ended", false, c))),
     el("div",{style:"display:flex;gap:6px;flex-shrink:0;"}, linkBtn, analyzeBtn)
   );
 }
@@ -2097,7 +2125,7 @@ function openCallDetail(call){ location.hash = '#/calls/' + call.id; return;
           el("div",{style:"font-weight:700;font-size:18px;"}, "Розмова · " + (call.client || call.title || "")),
           el("div",{class:"muted small", style:"margin-top:4px;"},
             fmtDate(call.startedAt)+" о "+fmtTime(call.startedAt)+" · "+(mgr.name||mgr.email)+" · "+(call.durationSec?fmtDur(call.durationSec):"—"))),
-        statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call))
+        statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call), call)
       ),
       call.status==="error" ? el("div",{class:"card",style:"background:var(--danger-soft);border-color:var(--danger);margin-bottom:14px;"},
         el("div",{style:"font-weight:600;color:var(--danger);display:flex;align-items:center;gap:6px;"}, ICONS.danger(), "Помилка обробки"),
@@ -2275,7 +2303,7 @@ function renderOverview(root){
             el("div",{style:"min-width:0;"},
               el("div",{class:"recent-row__name"}, mgr.name || mgr.email),
               el("div",{class:"recent-row__sub"}, sub)),
-            el("div",{style:"justify-self:end;"}, statusBadge(c.status)),
+            el("div",{style:"justify-self:end;"}, statusBadge(c.status, false, c)),
             sc!=null ? scoreRing(sc, 44) : el("div",{})
           );
         })
@@ -2453,7 +2481,7 @@ function renderCalls(root){
         el("div",{class:"calls-row__cell truncate",style:"font-weight:500;"}, c.client || c.title || "(без назви)"),
         el("div",{class:"calls-row__cell truncate muted small"},
           (c.source==="youtube_watcher" ? "▶ YouTube · " : "✎ Вручну · ") + (c.summaryShort || c.summary || c.errorReason || c.title || "—")),
-        el("div",{class:"calls-row__cell",style:"display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible;position:relative;"}, statusBadge(c.status),
+        el("div",{class:"calls-row__cell",style:"display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible;position:relative;"}, statusBadge(c.status, false, c),
           PROC_STATES.includes(c.status) ? el("span",{class:"muted xs", style:"font-variant-numeric:tabular-nums;", "data-lp":c.id}, progressPct(c)+"%") : null,
           PROC_STATES.includes(c.status) ? el("div",{class:"pbar pbar--mini"}, el("span",{style:"width:"+progressPct(c)+"%", "data-lpb":c.id})) : null,
           (aiAllowed() && ["idle","canceled","error","transcribed"].includes(c.status)) ? el("button",{class:"btn btn-primary btn-sm calls-act", title:(c.transcriptReady?"Зробити аналіз":"Почати аналіз"),
@@ -2550,7 +2578,7 @@ function renderAdminCallsView(root, tabs){
         el("div",{class:"calls-row__cell truncate",style:"font-weight:500;"}, c.title || c.client || "(без назви)"),
         el("div",{class:"calls-row__cell truncate muted small"},
           (c.source==="youtube_watcher" ? "▶ YouTube · " : "✎ Вручну · ") + (c.summaryShort || c.errorReason || "—")),
-        el("div",{class:"calls-row__cell",style:"display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible;position:relative;"}, statusBadge(c.status),
+        el("div",{class:"calls-row__cell",style:"display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible;position:relative;"}, statusBadge(c.status, false, c),
           proc ? el("span",{class:"muted xs", style:"font-variant-numeric:tabular-nums;"}, progressPct(c)+"%") : null,
           proc ? el("div",{class:"pbar pbar--mini"}, el("span",{style:"width:"+progressPct(c)+"%"})) : null,
           canStart ? el("button",{class:"btn btn-primary btn-sm calls-act", title:"Зробити виписку",
@@ -2605,7 +2633,7 @@ function openAdminCallModal(callId){
       el("h2",{style:"margin-right:28px;"}, c.title || c.client || "Розмова адміна"),
       el("div",{class:"muted small",style:"margin:2px 0 10px;"}, fmtDate(c.startedAt)+" о "+fmtTime(c.startedAt)+(c.durationSec?" · "+fmtDur(c.durationSec):"")),
       el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;"},
-        statusBadge(c.status),
+        statusBadge(c.status, false, c),
         PROC_STATES.includes(c.status) ? el("span",{class:"muted xs"}, progressPct(c)+"%") : null,
         c.videoId ? el("a",{href:"https://www.youtube.com/watch?v="+c.videoId,target:"_blank",rel:"noopener",class:"btn btn-ghost btn-sm",style:"text-decoration:none;"},"Відкрити на YouTube ↗") : null,
         (aiAllowed() && ["idle","canceled","error","transcribed","done"].includes(c.status)) ? el("button",{class:"btn btn-primary btn-sm",
@@ -2783,7 +2811,7 @@ function renderProgress(root){
             el("div",{class:"list-row__name"}, c.client || c.title || "(без назви)"),
             el("div",{class:"list-row__sub"}, fmtDate(c.startedAt)+" · "+fmtTimeRange(c.startedAt, c.durationSec, c.status))),
           el("div",{style:"display:flex;align-items:center;gap:12px;"},
-            statusBadge(c.status),
+            statusBadge(c.status, false, c),
             c.score!=null ? scoreRing(c.score, 40) : el("span",{class:"muted"},"—"),
             ICONS.chevronRight())))));
   })();
@@ -4750,7 +4778,7 @@ function openCallFullscreen(callId, soft){
           el("span",{class:"cv-kind"}, call.source==="youtube_watcher" ? "YouTube ефір" : "Картка розмови"),
           el("span",{class:"cv-sep"}, " · "),
           el("span",{class:"cv-name"}, call.client || call.title || call.videoId || "")] : "Розмова"),
-        call ? (()=>{ const b = statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call)); b.classList.add("cv-hstat"); return b; })() : null,
+        call ? (()=>{ const b = statusBadge(call.status, call.status==="done" ? call.txHq : hqIsLive(call), call); b.classList.add("cv-hstat"); return b; })() : null,
         call && call.status==="skipped_short" ? el("span",{class:"muted small cv-hnote"}, "< 30 хв — автоматично не обробляється") : null),
       call ? el("div",{class:"cv-modal__sub"},
         (mgr.name||mgr.email) + " · " + fmtDate(call.startedAt) + " о " + fmtTime(call.startedAt) + (call.durationSec?" · "+fmtTimeRange(call.startedAt, call.durationSec, call.status):""))

@@ -1735,6 +1735,8 @@ if (!window.__retryTick) window.__retryTick = setInterval(()=>{   // оновл�
 function statusBadge(status, hqMark, call, detail){   // detail=true — лише в картці розмови (там показуємо «✓ Завантажено · черга»)
   if (status==="live") return el("span",{class:"badge badge--live"}, "В ЕФІРІ");
   if (call && isPrivateCall(call)) return el("span",{class:"badge badge--priv", title: PRIVATE_TIP}, "Приватне відео");
+  if (call && status==="idle" && call.transcriptReady)   // розшифровано, аналіз ще не запускали (розмова додана вручну)
+    return el("span",{class:"badge badge--analysis", title:"Розшифровка готова. ШІ-аналіз ще не запущено: натисни «Зробити аналіз»."}, "Розшифровано · чекає аналізу");
   const ri = call ? retryInfo(call) : null;
   if (ri){ const b = el("span",{class:"badge badge--retry", title: RETRY_TIP}, ri.text); if (ri.at) b.setAttribute("data-retry-at", String(ri.at)); return b; }
   if (detail && call && (status === "queued" || status === "ended")){

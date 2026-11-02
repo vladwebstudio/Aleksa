@@ -1604,7 +1604,9 @@ function chooseRunMode(c){
 }
 async function startCallAnalysis(c){
   if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return false; }
-  if (isPrivateCall(c)){
+  let __priv = isPrivateCall(c);
+  if (!c.audioReady && c.videoId){ const pr = await ytIsPrivate(c.videoId, true); if (pr !== null) __priv = pr; }
+  if (__priv){
     const go = await confirmModal("Приватне відео — обробка не почнеться",
       "Це відео приватне на YouTube, тому сервер не зможе його завантажити, і розмова одразу знову отримає статус «Приватне відео». Спочатку власник каналу має в YouTube Studio поставити «Доступ за посиланням». Якщо доступ уже відкрито, можна спробувати.", "Доступ відкрито, спробувати");
     if (!go) return false;
@@ -1672,8 +1674,39 @@ const YT_BLOCK_RX = /sign in to confirm|not a bot|confirm you|HTTP Error (403|42
 const RETRY_TIP = "YouTube тимчасово не віддає відео. Сервер повторить сам, нічого натискати не треба.";
 // Приватне відео на YouTube: повторювати марно, потрібно, щоб власник каналу відкрив «Доступ за посиланням».
 const PRIVATE_TIP = "Відео приватне на YouTube, сервер не може його завантажити. Власник каналу має в YouTube Studio поставити «Доступ за посиланням», потім тут натиснути «Обробити заново».";
+// Перевірка приватності з боку сайту (не залежить від воркера): oEmbed YouTube для приватного відео відповідає 401/403.
+const PRIV_CHECK = {};   // videoId → {t: час перевірки, priv: true/false}
+async function ytIsPrivate(vid, force){
+  if (!vid) return null;
+  const old = PRIV_CHECK[vid];
+  if (!force && old && Date.now()-old.t < 300000) return old.priv;
+  try {
+    const r = await fetch("https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v="+encodeURIComponent(vid)+"&format=json");
+    const priv = (r.status===401 || r.status===403) ? true : (r.ok ? false : null);
+    if (priv === null) return old ? old.priv : null;
+    const changed = !old || old.priv !== priv;
+    PRIV_CHECK[vid] = { t: Date.now(), priv };
+    if (changed && !force) window.dispatchEvent(new Event(CALLS_CHANGED_EVT));
+    return priv;
+  } catch(_){ return old ? old.priv : null; }
+}
+window.addEventListener(CALLS_CHANGED_EVT, () => {
+  try {
+    let n = 0;
+    for (const c of (window.__calls || [])) {
+      if (n >= 6) break;
+      if (!c.videoId || c.audioReady) continue;
+      if (!(c.stage === "dl_retry" || c.dlAttempts > 0 || ["error","canceled","idle"].includes(c.status))) continue;
+      const o = PRIV_CHECK[c.videoId];
+      if (o && Date.now()-o.t < 300000) continue;
+      PRIV_CHECK[c.videoId] = { t: Date.now(), priv: o ? o.priv : false };   // щоб не слати повторні запити, поки йде перевірка
+      n++; ytIsPrivate(c.videoId, false);
+    }
+  } catch(_){}
+});
 function isPrivateCall(c){
   if (!c || c.audioReady) return false;
+  if (c.videoId && PRIV_CHECK[c.videoId] && PRIV_CHECK[c.videoId].priv === true && !["done","transcribed","transcribing","analyzing","queued_for_analysis","no_show"].includes(c.status)) return true;
   // позначку dlReason ставить сервер; вона лишається, навіть якщо звонок скасували або перезапустили (поки не скачається / не зміниться причина)
   if (c.dlReason === "private" && ["error","canceled","idle","skipped_short"].includes(c.status)) return true;
   return c.status === "error" && /this video is private|private video/i.test(String(c.error || ""));

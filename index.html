@@ -465,6 +465,7 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .ava--sm{width:30px;height:30px;font-size:12px}
 .ava--lg{width:64px;height:64px;font-size:20px;border-radius:16px}
 .ava--sm{border-radius:8px}
+.ava--xs{width:26px;height:26px;font-size:10px;border-radius:8px;margin-left:-6px;margin-right:8px}
 .dropzone{border:2px dashed var(--border-strong);border-radius:14px;padding:16px;text-align:center;cursor:pointer;color:var(--text-muted);font-size:13px;transition:all var(--dur) var(--ease)}
 .dropzone.is-over,.dropzone:hover{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
 
@@ -975,7 +976,7 @@ function sparkline(data, color){
 function sameDay(a,b){ return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
 
 function userAva(u, size){
-  const cls = "ava"+(size==="sm"?" ava--sm":size==="lg"?" ava--lg":"");
+  const cls = "ava"+(size==="xs"?" ava--xs":size==="sm"?" ava--sm":size==="lg"?" ava--lg":"");
   if (u && u.photoURL) return el("div",{class:cls}, el("img",{src:u.photoURL,alt:""}));
   return el("div",{class:cls}, initials((u&&(u.name||u.email))||"?"));
 }
@@ -1326,11 +1327,10 @@ function startCallsSubscription(user){
   if (window.__callsSub) return;
   if (!user || !user.email) return;
   const isAdminPlus = ["developer","main_admin","admin"].includes(user.role);
+  if (!isAdminPlus){ startMgrTeamSubscription(user); return; }
   try {
     const base = db.collection("calls");
-    const query = isAdminPlus
-      ? base.orderBy("startedAt","desc")
-      : base.where("managerEmail","==", user.email);  // без orderBy: where+orderBy по разным полям требует composite index → permission/failed-precondition
+    const query = base.orderBy("startedAt","desc");
     window.__callsSub = query.onSnapshot(snap => {
       window.__callsLoaded = true;
       const __all = snap.docs.map(d => { const o = Object.assign({ id: d.id }, d.data()); if (o.status==="canceled" && o.stage==="revert_to_done") o.status = "done"; return o; })
@@ -1346,6 +1346,55 @@ function startCallsSubscription(user){
       window.dispatchEvent(new Event(CALLS_CHANGED_EVT));
     });
   } catch (ex) { console.warn(ex); }
+}
+// Менеджер бачить розмови всіх менеджерів (лише читання). Окремий запит на кожного менеджера (where managerEmail == …):
+// так правила Firestore можуть перевірити, що розмова належить саме менеджеру, і «Розмови адміна» лишаються закритими.
+function startMgrTeamSubscription(user){
+  const subs = new Map(), bucket = new Map(), got = new Set();
+  let timer = null, ready = false;
+  const mapDocs = snap => snap.docs.map(d => { const o = Object.assign({ id: d.id }, d.data()); if (o.status==="canceled" && o.stage==="revert_to_done") o.status = "done"; return o; });
+  const publish = () => {
+    timer = null;
+    const all = [].concat.apply([], Array.from(bucket.values()))
+      .sort((a,b) => String(b.startedAt||"").localeCompare(String(a.startedAt||"")));
+    window.__callsLoaded = true;
+    window.__adminCalls = [];
+    window.__calls = all.filter(c => c.kind!=="admin_meeting");
+    window.dispatchEvent(new Event(CALLS_CHANGED_EVT));
+  };
+  const schedule = () => { if (!ready) return; if (!timer) timer = setTimeout(publish, 60); };
+  const gotOne = email => { got.add(email); if (!ready && got.size >= subs.size){ ready = true; publish(); } };
+  const subscribe = email => {
+    if (subs.has(email)) return;
+    const own = String(email).toLowerCase()===String(user.email).toLowerCase();
+    let unsub = null;
+    try {
+      unsub = db.collection("calls").where("managerEmail","==",email).onSnapshot(snap => {
+        bucket.set(email, mapDocs(snap)); gotOne(email); schedule();
+      }, err => {
+        console.warn("calls subscribe ("+(own?"own":"team")+"):", err && (err.code||err.message));
+        if (!own || !bucket.has(email)) bucket.set(email, []);   // чужі розмови без доступу не показуємо (навіть із кешу браузера)
+        gotOne(email); schedule();
+      });
+    } catch (ex) { console.warn(ex); bucket.set(email, []); }
+    subs.set(email, unsub || (()=>{}));
+  };
+  const emails = () => {
+    const set = new Set([user.email]);
+    (window.__users||[]).forEach(u => { if (u && u.role===ROLES.MANAGER && u.email) set.add(u.email); });
+    return Array.from(set);
+  };
+  const sync = () => { emails().forEach(subscribe); };
+  sync();
+  // нових менеджерів підхоплюємо без перезавантаження сторінки
+  const onUsers = () => { sync(); };
+  window.addEventListener(USERS_CHANGED_EVT, onUsers);
+  // страховка: якщо якийсь запит довго не відповідає — показуємо те, що є
+  const safety = setTimeout(() => { if (!ready){ ready = true; publish(); } }, 6000);
+  window.__callsSub = () => {
+    window.removeEventListener(USERS_CHANGED_EVT, onUsers); clearTimeout(safety); if (timer) clearTimeout(timer);
+    subs.forEach(u => { try { u(); } catch(_){} }); subs.clear(); bucket.clear(); got.clear();
+  };
 }
 function stopCallsSubscription(){
   window.__callsLoaded = false;
@@ -1912,7 +1961,7 @@ function navbar(user, activeKey){
 
   const nameBtn = el("button",{class:"navbar__name", title:"Профіль",
     onclick: ()=>openProfileSettingsModal(user)},
-    el("span",{}, user.name || user.email.split("@")[0]));
+    userAva(user,"xs"), el("span",{}, user.name || user.email.split("@")[0]));
 
   try { watchAttention(user, items.find(a=>a.getAttribute("href")==="#/settings"), gearBtn); } catch(ex){ console.warn("attention:", ex); }
 
@@ -2128,13 +2177,13 @@ function openProfileSettingsModal(user){
   let photo = user.photoURL || "";
   const err = el("div",{class:"login-err"});
   const preview = el("div",{});
-  const rmBtn = el("button",{type:"button",class:"btn btn-danger-outline btn-sm",style:"margin-top:8px;",onclick:()=>{ photo=""; repaint(); }},"Видалити фото");
+  const rmBtn = el("button",{type:"button",class:"btn btn-danger-outline btn-sm",style:"margin-top:8px;",onclick:async()=>{ if (await confirmModal("Видалити фото?","Фото профілю буде видалено після натискання «Зберегти».","Так, видалити")){ photo=""; repaint(); } }},"Видалити фото");
   function repaint(){ preview.replaceChildren(userAva({ name:nameI.value, email:user.email, photoURL:photo }, "lg")); rmBtn.style.display = photo ? "" : "none"; }
   repaint();
   nameI.addEventListener("input",repaint);
   const fileI = el("input",{type:"file",accept:"image/*",style:"display:none;"});
   const handle = async (file) => { err.textContent=""; try { photo = await fileToAvatar(file); repaint(); } catch(ex){ err.textContent = ex.message||String(ex); } };
-  fileI.addEventListener("change", ()=>{ if (fileI.files[0]) handle(fileI.files[0]); });
+  fileI.addEventListener("change", ()=>{ const f = fileI.files[0]; if (f) handle(f); fileI.value = ""; });
   const drop = el("div",{class:"dropzone", onclick:()=>fileI.click()}, "Перетягни фото сюди або натисни, щоб вибрати файл");
   drop.addEventListener("dragover", e=>{ e.preventDefault(); drop.classList.add("is-over"); });
   drop.addEventListener("dragleave", ()=>drop.classList.remove("is-over"));
@@ -2317,7 +2366,7 @@ function renderOverview(root){
     const anyCrit = groups.some(g => g.critCount > 0);
     const shown = groups.slice(0, 3);
     const plr = (n,a,b,c) => (n%10===1 && n%100!==11) ? a : (n%10>=2 && n%10<=4 && (n%100<10||n%100>=20)) ? b : c;
-    const blockTitle = isMgrView() ? (anyCrit?"Мої критичні помилки":"Мої слабкі місця") : (anyCrit?"Критичні помилки менеджерів":"Моменти менеджерів");
+    const blockTitle = anyCrit ? "Критичні помилки менеджерів" : "Моменти менеджерів";
     const mkRow = (g, onNav) => {
             const call = g.call;
             const mgr  = userByEmail(call.managerEmail);
@@ -2417,6 +2466,7 @@ function kpiClickable(title,value,badge,sub,onClick){
  * ======================================================== */
 const CALL_TABS = [
   { key:"all",        label:"Усі",          match: c => true },
+  { key:"mine",       label:"Мої",          mgrOnly:true, match: c => !!(activeUser && c.managerEmail===activeUser.email) },
   { key:"done",       label:"Готово",       match: c => c.status==="done" || c.status==="no_show" },
   { key:"live",       label:"В ефірі",      adminOnly:true, match: c => c.status==="live" },
   { key:"working",    label:"В роботі",     match: c => ["queued","ended","queued_for_analysis","transcribed","downloading","transcribing","analyzing"].includes(c.status) || (c.status==="live" && isMgrView()) },
@@ -2425,7 +2475,9 @@ const CALL_TABS = [
 // Тестові копії (порівняння моделей ШІ) живуть лише у вкладці «Тест» і не переходять в інші вкладки.
 CALL_TABS.forEach(t => { const m = t.match; t.match = c => !c.isTest && m(c); });
 function isMgrView(){ return !!(activeUser && activeUser.role===ROLES.MANAGER); }
-function callTabs(){ return CALL_TABS.filter(t => !t.adminOnly || !isMgrView()); }
+function callTabs(){ return CALL_TABS.filter(t => (!t.adminOnly || !isMgrView()) && (!t.mgrOnly || isMgrView())); }
+// Менеджер бачить розмови інших менеджерів, але діяти (запуск, скасування, ШІ-чат) може лише зі своїми
+function canActOnCall(c){ return !!(activeUser && c && (activeUser.role!==ROLES.MANAGER || c.managerEmail===activeUser.email)); }
 const callsState = { tab:(function(){ try{ return localStorage.getItem("alexa_calls_tab")||"all"; }catch(_){ return "all"; } })(), search:"", manager:"all", from:(function(){ const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(), to:new Date(), limit:20 };  // за замовчуванням: поточний місяць
 
 // Перехід у «Розмови» з уже виставленими фільтрами (з Огляду / Прогресу)
@@ -2463,12 +2515,8 @@ function renderCalls(root){
   const search = el("input",{type:"text",placeholder:"Пошук за клієнтом...",class:"input input--search",value:callsState.search,
     oninput:(e)=>{ callsState.search = e.target.value.toLowerCase(); updateList(); }});
 
-  // Менеджер бачить у dropdown лише себе; адмін+ бачить усіх.
-  const isManagerRole = activeUser && activeUser.role===ROLES.MANAGER;
-  if (isManagerRole) callsState.manager = activeUser.email;
-  const mgrOptions = isManagerRole
-    ? [{ value: activeUser.email, label: activeUser.name || activeUser.email, name: activeUser.name, email: activeUser.email, photoURL: activeUser.photoURL||null }]
-    : [{ value:"all", label:"Усі менеджери", name:"Усі менеджери", photoURL:null }].concat(
+  // Фільтр за менеджером: усі менеджери або конкретний (для менеджера теж)
+  const mgrOptions = [{ value:"all", label:"Усі менеджери", name:"Усі менеджери", photoURL:null }].concat(
         managersList().map(m => ({ value:m.email, label:m.name||m.email, name:m.name, email:m.email, photoURL:m.photoURL||null }))
       );
   const mgrDD = dropdown({
@@ -2558,15 +2606,15 @@ function renderCalls(root){
             el("div",{class:"truncate",style:"font-weight:500;overflow:hidden;text-overflow:ellipsis;"}, mgr.name||mgr.email.split("@")[0]))),
         el("div",{class:"calls-row__cell truncate",style:"font-weight:500;"}, c.client || c.title || "(без назви)"),
         el("div",{class:"calls-row__cell truncate muted small"},
-          (c.source==="youtube_watcher" ? "▶ YouTube · " : "✎ Вручну · ") + (c.summaryShort || c.summary || c.errorReason || c.title || "—")),
+          (c.source==="youtube_watcher" ? "▶ YouTube" : "✎ Вручну") + (canActOnCall(c) ? " · " + (c.summaryShort || c.summary || c.errorReason || c.title || "—") : "")),
         el("div",{class:"calls-row__cell",style:"display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible;position:relative;"}, statusBadge(c.status, false, c),
           PROC_STATES.includes(c.status) ? el("span",{class:"muted xs", style:"font-variant-numeric:tabular-nums;", "data-lp":c.id}, progressPct(c)+"%") : null,
           PROC_STATES.includes(c.status) ? el("div",{class:"pbar pbar--mini"}, el("span",{style:"width:"+progressPct(c)+"%", "data-lpb":c.id})) : null,
-          (aiAllowed() && ["idle","canceled","error","transcribed"].includes(c.status)) ? el("button",{class:"btn btn-primary btn-sm calls-act", title:(c.transcriptReady?"Зробити аналіз":"Почати аналіз"),
+          (aiAllowed() && canActOnCall(c) && ["idle","canceled","error","transcribed"].includes(c.status)) ? el("button",{class:"btn btn-primary btn-sm calls-act", title:(c.transcriptReady?"Зробити аналіз":"Почати аналіз"),
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
               try { const ok = await startCallAnalysis(c); if (ok) toast("Передано на виконання","ok"); else b.disabled=false; }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null,
-          ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(c.status) ? el("button",{class:"btn btn-ghost btn-sm calls-act", title:"Скасувати",
+          (canActOnCall(c) && ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(c.status)) ? el("button",{class:"btn btn-ghost btn-sm calls-act", title:"Скасувати",
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; if (!(await confirmStop(c))) return; b.disabled=true;
               try { const keep = await cancelCall(c); toast(keep ? "Скасовано — лишився попередній аналіз" : "Скасовано","ok"); }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "✕") : null),
@@ -2813,8 +2861,10 @@ const MOCK_TEAM_PROGRESS = {
 const MOCK_MGR_SCORES = [];
 
 function renderProgress(root){
-  const isManager = activeUser && activeUser.role===ROLES.MANAGER;
-  const title = isManager ? "Мій прогрес" : "Прогрес";
+  // Менеджер бачить прогрес так само, як адмін: уся команда або вибраний менеджер (лише перегляд)
+  const isMgrRole = !!(activeUser && activeUser.role===ROLES.MANAGER);
+  const isManager = false;
+  const title = "Прогрес";
   const who = isManager ? activeUser.email : progressState.who;
   const data = (function(){
     let from = periodStart(progressState.period), to = new Date(8640000000000000);
@@ -2943,7 +2993,7 @@ function renderProgress(root){
         let kk = k; if (V){ kk = V.canon(call, k); if (!kk){ stale++; return; } }
         const o=m.get(kk)||{sum:0,n:0}; o.sum+=Number(c.score)||0; o.n++; m.set(kk,o); }); });
     const r = new Map(); m.forEach((o,k)=>r.set(k,{ pct:Math.round(o.sum/o.n), n:o.n })); r.stale = stale; return r; };
-  const staleNote = n => n>0 ? el("div",{class:"pm-stale"}, "Не враховано "+n+" "+plural(n,"оцінку","оцінки","оцінок")+" за критеріями, яких вже немає в скрипті (видалені чи сильно перейменовані). "+(isManager ? "" : "Перезапусти аналіз цих розмов, щоб вони потрапили в статистику.")) : document.createDocumentFragment();
+  const staleNote = n => n>0 ? el("div",{class:"pm-stale"}, "Не враховано "+n+" "+plural(n,"оцінку","оцінки","оцінок")+" за критеріями, яких вже немає в скрипті (видалені чи сильно перейменовані). "+(isMgrRole ? "" : "Перезапусти аналіз цих розмов, щоб вони потрапили в статистику.")) : document.createDocumentFragment();
   const openManager = email => { progressState.who = email; saveProgressPref(); renderProgress(root); };
   const sortSt = progressState.sortSt || (progressState.sortSt = { key:"__avg", dir:"desc" });
   let showAllCols = !!progressState.allCols;
@@ -3104,7 +3154,7 @@ function renderProgress(root){
     if (teamMode) paintTeam(teamList, loading); else paintPersonal(teamList, prevList, loading);
   }
   (function(){ lastLists = [[], [], true]; if (teamMode) paintTeam([], true); else paintPersonal([], [], true); })();
-  Promise.all([loadAnalyses(teamInP), loadAnalyses(data.prevCalls), isManager ? Promise.resolve(null) : scriptsAll().catch(()=>null)]).then(([tl, pl, sm]) => {
+  Promise.all([loadAnalyses(teamInP), loadAnalyses(data.prevCalls), isMgrRole ? Promise.resolve(null) : scriptsAll().catch(()=>null)]).then(([tl, pl, sm]) => {
     if (!document.body.contains(mainCard)) return;
     scriptsMapRef = sm && Object.keys(sm).length ? sm : null;
     lastLists = [tl, pl, false]; paint(tl, pl, false); });
@@ -3479,7 +3529,7 @@ function openEditProfileModal(actor, u, afterSave){
   const nameI  = el("input",{type:"text",value:u.name||"",placeholder:"Імʼя"});
   let photo = u.photoURL || "";
   const preview = el("div",{});
-  const rmBtn = el("button",{type:"button",class:"btn btn-danger-outline btn-sm",style:"margin-top:8px;",onclick:()=>{ photo=""; paintPreview(); }},"Видалити фото");
+  const rmBtn = el("button",{type:"button",class:"btn btn-danger-outline btn-sm",style:"margin-top:8px;",onclick:async()=>{ if (await confirmModal("Видалити фото?","Фото профілю буде видалено після натискання «Зберегти».","Так, видалити")){ photo=""; paintPreview(); } }},"Видалити фото");
   const paintPreview = () => { preview.replaceChildren(userAva({name:nameI.value||u.name, email:u.email, photoURL:photo}, "lg")); rmBtn.style.display = photo ? "" : "none"; };
   paintPreview();
   const err = el("div",{class:"login-err"});
@@ -3488,7 +3538,7 @@ function openEditProfileModal(actor, u, afterSave){
     err.textContent = "";
     try { photo = await fileToAvatar(file); paintPreview(); } catch(ex){ err.textContent = ex.message||String(ex); }
   };
-  fileI.addEventListener("change", ()=>{ if (fileI.files[0]) handle(fileI.files[0]); });
+  fileI.addEventListener("change", ()=>{ const f = fileI.files[0]; if (f) handle(f); fileI.value = ""; });
   const drop = el("div",{class:"dropzone", onclick:()=>fileI.click()}, "Перетягни фото сюди або натисни, щоб вибрати файл");
   drop.addEventListener("dragover", e=>{ e.preventDefault(); drop.classList.add("is-over"); });
   drop.addEventListener("dragleave", ()=>drop.classList.remove("is-over"));
@@ -3746,7 +3796,7 @@ function renderSettings(root){
       const ageH = ts ? (Date.now()-ts.getTime())/3600000 : null;
       if (ageH!==null && ageH>3){
         add("var(--danger-soft)","var(--danger)","Автоперевірка сервера не звітує вже "+Math.floor(ageH)+" год.",
-          "Сервер вимкнений або без інтернету, або зупинена служба обслуговування.","У панелі Contabo перевір, що VPS у стані Running; далі RUNBOOK, сценарій 6.");
+          "Сервер вимкнений або без інтернету, зупинена служба обслуговування, або не оплачено сервер Contabo.","Спершу перевір оплату: my.contabo.com → Billing (чи продовжено VPS, чи діє картка). Потім що VPS у стані Running; далі RUNBOOK, сценарій 6.");
       }
       const list = Array.isArray(x.issues) ? x.issues : [];
       list.forEach(it=>{
@@ -4068,8 +4118,10 @@ function renderCallDetail(root, callId){
   let chatMsgs = [];
   let chatUnsub = null;
   const chatRef = db.collection("calls").doc(callId).collection("chat");
+  const chatMine = canActOnCall(findCallAny(callId));   // менеджер читає й пише ШІ-чат лише у своїх розмовах
   // live subscribe
-  try {
+  if (!chatMine){ chatMsgs = MOCK_CHAT_START.slice(); }
+  else try {
     chatUnsub = chatRef.orderBy("ts").onSnapshot(snap => {
       chatMsgs = snap.docs.map(x => Object.assign({id:x.id}, x.data()));
       if (chatMsgs.length === 0){ chatMsgs = MOCK_CHAT_START.slice(); }
@@ -4150,7 +4202,10 @@ function renderCallDetail(root, callId){
   });
 
   const isAdminMeeting = call.kind==="admin_meeting";
-  const TABS = isAdminMeeting ? [
+  const viewOnly = !!(activeUser && activeUser.role===ROLES.MANAGER && !canActOnCall(call));   // чужа розмова менеджера: лише оцінки
+  const TABS = viewOnly ? [
+    { key:"summary", label:"Оцінки" },
+  ] : isAdminMeeting ? [
     { key:"summary", label:"Підсумок" },
     { key:"transcript", label:"Транскрипт" },
   ] : [
@@ -4165,7 +4220,9 @@ function renderCallDetail(root, callId){
   // Player iframe (manual без YT URL — placeholder; youtube_watcher та manual з videoId — embed)
   let playerNode;
   const isManual = call.source === "manual";
-  if (d.youtubeId && call.embeddable === false){
+  if (viewOnly){
+    playerNode = el("div",{class:"cv-player__placeholder"}, "Відео доступне лише власнику розмови");
+  } else if (d.youtubeId && call.embeddable === false){
     playerNode = el("div",{class:"cv-player__placeholder", style:"flex-direction:column;gap:10px;text-align:center;padding:16px;"},
       el("div",{}, "Автор вимкнув показ відео на інших сайтах"),
       el("a",{href:"https://www.youtube.com/watch?v="+d.youtubeId, target:"_blank", rel:"noopener", class:"btn btn-primary btn-sm", style:"text-decoration:none;"}, "Відкрити на YouTube ↗"));
@@ -4239,11 +4296,11 @@ function renderCallDetail(root, callId){
   function buildScoreNode(){ const sc = computedScore;
   return sc!=null ? el("div",{class:"cv-score"},
     el("div",{class:"cv-crit-row"},
-      [el("div",{class:"cv-crit-cell cv-crit-cell--main cv-crit-cell--click", title:"Відкрити «Скрипт»", onclick:()=>goScriptCrit(null)},
+      [el("div",viewOnly ? {class:"cv-crit-cell cv-crit-cell--main"} : {class:"cv-crit-cell cv-crit-cell--main cv-crit-cell--click", title:"Відкрити «Скрипт»", onclick:()=>goScriptCrit(null)},
         el("div",{class:"cv-crit-cell__name"}, "Загальна оцінка"),
         scoreRing(sc, 52)
       )].concat(
-        (d.criteria||[]).map(c => el("div",{class:"cv-crit-cell cv-crit-cell--click", title:"Чому така оцінка", onclick:()=>goScriptCrit(c.name)},
+        (d.criteria||[]).map(c => el("div",viewOnly ? {class:"cv-crit-cell"} : {class:"cv-crit-cell cv-crit-cell--click", title:"Чому така оцінка", onclick:()=>goScriptCrit(c.name)},
           el("div",{class:"cv-crit-cell__name"}, c.name),
           c.na ? el("div",{class:"score-ring score-ring--na",style:"width:44px;height:44px;",title:"Не оцінюється: розмова не дійшла до цього етапу"}, el("span",{class:"score-ring__text"},"—")) : scoreRing(c.pct, 44),
           c.weight ? el("div",{class:"cv-crit-cell__w"}, "складає " + c.weight + "%") : null
@@ -4269,6 +4326,7 @@ function renderCallDetail(root, callId){
         (a.remember && a.remember.length) ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Не забути"),
           list(a.remember, x => el("li",{style:"margin-bottom:4px;"}, x.text, ...tsB(x)))) : null);
     }
+    if (viewOnly) return el("div",{}, buildScoreNode() || emptyCard("Оцінки", "Розмова ще не оброблена"));
     if (t==="summary"){
       const BLAME = { manager:"Менеджер: міг продати, але не впорався", client:"Клієнт: нецільовий зараз, менеджер не винен", circumstances:"Обставини: технічні чи зовнішні причини" };
       return el("div",{},
@@ -4518,6 +4576,7 @@ function renderCallDetail(root, callId){
   }
   async function sendMsg(text){
     if (!text || !text.trim()) return;
+    if (!chatMine){ toast("ШІ-чат доступний лише в розмовах, які веде сам менеджер","err"); return; }
     if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return; }
     const _cur = findCallAny(callId);
     if (!(_cur && (_cur.transcriptReady || _cur.status==="done"))){ toast("Чат доступний після транскрибації розмови","err"); return; }
@@ -4538,8 +4597,8 @@ function renderCallDetail(root, callId){
       return;
     }
   }
-  const chatInput = el("textarea",{rows:"1",placeholder:aiAllowed() ? "Запитай ШІ про цю розмову…" : "Доступ до ШІ-чату закрито адміністратором",maxlength:"2000"});
-  if (!aiAllowed()) chatInput.disabled = true;
+  const chatInput = el("textarea",{rows:"1",placeholder:!chatMine ? "ШІ-чат доступний лише власнику розмови" : (aiAllowed() ? "Запитай ШІ про цю розмову…" : "Доступ до ШІ-чату закрито адміністратором"),maxlength:"2000"});
+  if (!aiAllowed() || !chatMine) chatInput.disabled = true;
   // поле росте вгору разом з текстом (до ~6 рядків), далі прокрутка; Enter — надіслати, Shift+Enter — новий рядок
   const CHAT_MAX = 98;   // ≈ 4 рядки; більше — з'являється прокрутка
   const chatFit = ()=>{
@@ -4824,7 +4883,7 @@ function openCallFullscreen(callId, soft){
 
   // Header
   // "queued" теж — звонок може висіти з transcriptReady=true від старого stub.
-  const canRestart = call && aiAllowed() && ["skipped_short","error","canceled","idle","transcribed","done","no_show"].includes(call.status);
+  const canRestart = call && aiAllowed() && canActOnCall(call) && ["skipped_short","error","canceled","idle","transcribed","done","no_show"].includes(call.status);
   const restartBtn = canRestart ? el("button",{class:"btn btn-primary btn-sm", style:"margin-right:8px;",
     onclick: async (e)=>{
       const btn = e.currentTarget; btn.disabled = true;
@@ -4836,7 +4895,7 @@ function openCallFullscreen(callId, soft){
       }
     } }, call.status==="done" ? "Перезапустити аналіз" : call.status==="no_show" ? "Проаналізувати все одно" : (call.transcriptReady ? "Зробити аналіз" : "Почати аналіз")) : null;
 
-  const canCancel = call && ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(call.status);
+  const canCancel = call && canActOnCall(call) && ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(call.status);
   const cancelBtn = canCancel ? el("button",{class:"btn btn-ghost btn-sm", style:"margin-right:8px;",
     onclick: async (e)=>{
       if (!(await confirmStop(call))) return;
@@ -4864,7 +4923,7 @@ function openCallFullscreen(callId, soft){
         : null
     ),
     el("div",{class:"cv-hbtns"},
-      (call && call.videoId) ? el("a",{href:"https://www.youtube.com/watch?v="+call.videoId, target:"_blank", rel:"noopener",
+      (call && call.videoId && canActOnCall(call)) ? el("a",{href:"https://www.youtube.com/watch?v="+call.videoId, target:"_blank", rel:"noopener",
         class:"btn btn-ghost btn-sm", style:"margin-right:8px;text-decoration:none;"}, "Відкрити на YouTube ↗") : null,
       cancelBtn,
       restartBtn),

@@ -872,6 +872,9 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-cl{margin-top:12px}.an-cl__h{font-size:13px;margin-bottom:4px}
 .an-cl__r{display:grid;grid-template-columns:130px 1fr 52px;gap:10px;padding:6px 8px;border-radius:var(--r-sm);font-size:13px;color:var(--text);text-decoration:none}
 .an-cl__r:hover{background:var(--surface-2)}.an-cl__t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.an-cl__s{text-align:right;font-weight:600}
+.an-lim{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.an-lim__b{padding:3px 10px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;cursor:pointer}
+.an-lim__b.is-active{background:var(--brand);border-color:var(--brand);color:#fff}
 .an-why{font-size:12.5px;color:var(--danger);line-height:1.5}
 @media(max-width:900px){.an-smps,.an-kpis{grid-template-columns:1fr 1fr}.an-cl__r{grid-template-columns:1fr 44px}.an-cl__r .muted{display:none}}
 @media(max-width:900px){.an-wrap{grid-template-columns:1fr;overflow:auto}.an-left{border-right:0;border-bottom:1px solid var(--border);overflow:visible}.an-right{overflow:visible;padding:16px}.an-two,.an-cmp__g{grid-template-columns:1fr}}
@@ -3003,7 +3006,7 @@ function anSelect(s, fmtKey){
     if (s.who!=="all" && String(c.managerEmail||"").toLowerCase()!==s.who) return false;
     if (f.match && !f.match(c)) return false;
     const t = new Date(c.startedAt); return t>=r.from && t<r.to;
-  }).sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
+  }).sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt)).slice(0, s.limit>0 ? s.limit : undefined);
 }
 function anPeriodLabel(s){
   if (s.period==="custom" && s.from && s.to) return fmtDateShort(s.from)+" — "+fmtDateShort(s.to);
@@ -3030,12 +3033,14 @@ function anSampleCard(label, s, st, repaint, onRemove){
     defaultRange:()=>{ const d=new Date(); return { start:new Date(d.getFullYear(), d.getMonth(), 1), end:d }; },
     onChange:({start,end})=>{ s.from=start; s.to=end; s.period="custom"; repaint(); } });
   if (!s.period){ try { dr.querySelector(".dd__btn-label").textContent = "Обери період"; } catch(_){} }
+  const lim = el("div",{class:"an-lim"}, el("span",{class:"muted xs"},"Останніх розмов:"),
+    [5,10,20,0].map(v=>el("button",{type:"button", class:"an-lim__b"+((s.limit||0)===v?" is-active":""), onclick:()=>{ s.limit=v; repaint(); }}, v ? String(v) : "усі")));
   const n = anSelect(s, st.fmt).length;
   const missing = !s.who ? "Обери менеджера" : !s.period ? "Обери період" : null;
   return el("div",{class:"an-box"},
     el("div",{class:"an-box__h"}, el("span",{class:"an-tag"}, "Вибірка "+label),
       onRemove ? el("button",{class:"btn btn-ghost btn-sm", type:"button", onclick:onRemove}, "Прибрати") : null),
-    dd, seg, dr,
+    dd, seg, dr, lim,
     el("div",{class:"small "+(n?"":"muted")}, missing ? missing : n ? ("Розмов у вибірці: "+n+(n>AN_MAX_CALLS ? " (візьму "+AN_MAX_CALLS+" найновіших)" : "")) : "Готових розмов за цим фільтром немає"));
 }
 
@@ -3048,6 +3053,7 @@ function anPer(s){   // «16–18 лист.», «28 лист. – 2 груд.»,
   const yr = new Date().getFullYear();
   return t + ((a.y!==yr || b.y!==yr) ? " "+b.y : "");
 }
+const anLast = s => (s && s.last>0) ? "останні "+s.last : "";
 const anFmtLbl = k => (AN_FORMATS.find(f=>f.key===k)||{}).label || "Усі розмови";
 const anName = s => (s && (s.managerName || (s.manager ? anWho(s.manager) : ""))) || "?";
 const anKey = i => i ? "b" : "a";
@@ -3095,7 +3101,7 @@ function anSmpCard(s, i, stats){
   const st = stats || {}, k = anKey(i);
   return el("div",{class:"an-smp an-smp--"+k},
     el("div",{class:"an-smp__top"}, el("span",{class:"an-tag an-tag--"+k}, i?"B":"A"), el("b",{class:"an-smp__n"}, anName(s))),
-    el("div",{class:"an-smp__m"}, anPer(s)+" · "+anFmtLbl(s.fmt)),
+    el("div",{class:"an-smp__m"}, anPer(s)+" · "+anFmtLbl(s.fmt)+(anLast(s) ? " · "+anLast(s) : "")),
     el("div",{class:"an-smp__k"},
       el("span",{}, el("b",{}, String(st.calls!=null ? st.calls : (s.callIds||[]).length)), " розмов"),
       st.avgScore!=null ? el("span",{}, "сер. бал ", el("b",{}, String(st.avgScore))) : null,
@@ -3236,7 +3242,7 @@ function openAnalysisModal(){
       return el("div",{class:"an-hi"+(h.id===st.view?" is-active":""), onclick:()=>openReport(h.id)},
         el("div",{class:"an-hi__main"},
           ss.map((s,i)=>el("div",{class:"an-hi__s"}, anDot(i), el("b",{}, anName(s)),
-            el("span",{class:"muted"}, "· "+anPer(s)+" · "+(s.total||(s.callIds||[]).length)+" розм."))),
+            el("span",{class:"muted"}, "· "+anPer(s)+(anLast(s) ? " · "+anLast(s) : "")+" · "+(s.total||(s.callIds||[]).length)+" розм."))),
           el("div",{class:"an-hi__m muted xs"}, [...new Set(ss.map(s=>anFmtLbl(s.fmt)))].join(" / ")),
           h.question ? el("div",{class:"an-hi__q", title:String(h.question)}, "«"+String(h.question)+"»") : null,
           el("div",{class:"an-hi__f xs"}, el("span",{class:"an-st an-st--"+(h.status||"x")}, stIcon), el("span",{class:"muted"}, "· "+when+(h.costUsd!=null ? " · $"+Number(h.costUsd).toFixed(3) : "")))),
@@ -3331,7 +3337,7 @@ function openAnalysisModal(){
     st.busy = true; paintLeft();
     const mk = (lb,s,calls)=>{ const r=anRange(s); return { label:lb, manager:s.who, managerName:anWho(s.who),
       from: s.period==="all" ? "" : anIso(s.period==="custom" ? s.from : periodStart(s.period)), to: s.period==="all" ? "" : anIso(s.period==="custom" ? s.to : new Date()),
-      fmt:st.fmt, total:calls.length, callIds:calls.slice(0,AN_MAX_CALLS).map(c=>c.id) }; };
+      fmt:st.fmt, last:s.limit||0, total:calls.length, callIds:calls.slice(0,AN_MAX_CALLS).map(c=>c.id) }; };
     const samples = [mk("A",st.A,A)].concat(st.B ? [mk("B",st.B,B)] : []);
     try {
       const ref = await db.collection("analysisReports").add({ status:"pending", requestedBy:me, ts:firebase.firestore.FieldValue.serverTimestamp(),

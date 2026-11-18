@@ -867,7 +867,10 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-fd__b{margin:8px 0 10px;line-height:1.55;white-space:pre-wrap;font-size:14px}
 .an-ev__h{gap:8px}.an-tc{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--border)}
 .an-ev__k{font-size:12px;font-weight:600}.an-ev__go{margin-left:auto;font-size:11.5px;color:var(--brand)}
-.an-ask{margin-top:6px}.an-ask__h{font-weight:700;font-size:15px;margin-bottom:4px}.an-ask__sub{font-size:12.5px;color:var(--text-muted);margin-bottom:10px}
+.an-ask{margin-top:28px;border:2px solid var(--brand);background:var(--surface)}.an-ask__tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;color:#fff;background:var(--brand);padding:2px 9px;border-radius:var(--r-pill);margin-bottom:8px}
+.an-bub{border-radius:14px;padding:10px 14px;font-size:14px;line-height:1.55;max-width:100%;box-sizing:border-box}.an-bub--me{margin-left:auto;max-width:88%;width:fit-content;background:var(--brand);color:#fff;border-bottom-right-radius:4px;white-space:pre-line}
+.an-bub--ai{margin-top:10px;background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:4px}.an-bub__who{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--brand);margin-bottom:6px}
+.an-ask{}.an-ask__h{font-weight:700;font-size:15px;margin-bottom:4px}.an-ask__sub{font-size:12.5px;color:var(--text-muted);margin-bottom:10px}
 .an-ask__comp{position:sticky;bottom:0;z-index:3;background:var(--surface);margin-top:12px;padding:10px 0 6px;border-top:1px solid var(--border)}.an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
 .an-think{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13.5px}.an-think i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse 1.2s infinite}.an-think i:nth-child(3){animation-delay:.2s}.an-think i:nth-child(4){animation-delay:.4s}
 .an-aq{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.an-aq__q{font-size:13.5px;line-height:1.5;color:var(--text-muted);margin-bottom:8px}.an-aq__q b{color:var(--text)}
@@ -3139,21 +3142,23 @@ const AN_WHO = { manager:"Менеджер", client:"Клієнт", circumstance
 const AN_ASK_CHIPS = ["То хто винен: я, клієнти чи обставини? Розпиши по пунктах.", "Де саме я помилився? Назви кожен момент.", "Які клієнти були нецільові й чому?"];
 function anAskView(a, nm){
   const r = a.result||{}, b = r.blame;
-  const kids = [el("div",{class:"an-aq__q"}, el("b",{},"Питання: "), a.question||"")];
-  if (a.status==="error") return el("div",{class:"an-aq"}, kids, el("div",{class:"an-note an-note--err"}, el("b",{},"Не вийшло: "), a.error||"невідома помилка"));
-  if (a.status!=="done") return el("div",{class:"an-aq"}, kids, el("div",{class:"an-think"}, el("span",{}, a.status==="running" ? "ШІ думає" : "Питання надіслано, чекаю сервер"), el("i"), el("i"), el("i")));
-  if (r.verdict) kids.push(el("div",{class:"an-aq__v"}, r.verdict));
-  if (b) kids.push(el("div",{},
+  const me = el("div",{class:"an-bub an-bub--me"}, a.question||"");
+  const wrap = body => el("div",{class:"an-aq"}, me, el("div",{class:"an-bub an-bub--ai"}, el("div",{class:"an-bub__who"},"ШІ"), body));
+  if (a.status==="error") return wrap(el("div",{class:"an-note an-note--err"}, el("b",{},"Не вийшло: "), a.error||"невідома помилка"));
+  if (a.status!=="done") return wrap(el("div",{class:"an-think"}, el("span",{}, a.status==="running" ? "ШІ думає" : "Питання надіслано, чекаю сервер"), el("i"), el("i"), el("i")));
+  const k = [];
+  if (r.verdict) k.push(el("div",{class:"an-aq__v"}, r.verdict));
+  if (b) k.push(el("div",{},
     el("div",{class:"an-bar"}, el("div",{style:"width:"+b.manager+"%;background:var(--danger);"}), el("div",{style:"width:"+b.client+"%;background:var(--warn);"}), el("div",{style:"width:"+b.circumstances+"%;background:var(--border-strong);"})),
     el("div",{class:"an-legend"}, el("span",{}, el("i",{class:"an-sq",style:"background:var(--danger)"}),"Менеджер "+b.manager+"%"), el("span",{}, el("i",{class:"an-sq",style:"background:var(--warn)"}),"Клієнт "+b.client+"%"), el("span",{}, el("i",{class:"an-sq",style:"background:var(--border-strong)"}),"Обставини "+b.circumstances+"%")),
     b.note ? el("div",{class:"an-note-t"}, b.note) : null));
-  if (r.answer) kids.push(el("div",{class:"an-aq__a"}, r.answer));
-  (r.points||[]).forEach(p=>kids.push(el("div",{class:"an-pt an-pt--"+p.who},
+  if (r.answer) k.push(el("div",{class:"an-aq__a"}, r.answer));
+  (r.points||[]).forEach(p=>k.push(el("div",{class:"an-pt an-pt--"+p.who},
     el("div",{class:"an-pt__h"}, el("span",{class:"an-pt__w"}, AN_WHO[p.who]||p.who), el("b",{}, p.title)),
     el("div",{class:"an-pt__b"}, p.body),
     (p.evidence||[]).length ? el("div",{class:"an-evs"}, p.evidence.map(e=>anEvidence(e,nm))) : null)));
-  if (a.costUsd!=null) kids.push(el("div",{class:"muted xs",style:"margin-top:8px;"}, "≈ $"+Number(a.costUsd).toFixed(4)));
-  return el("div",{class:"an-aq"}, kids);
+  if (a.costUsd!=null) k.push(el("div",{class:"muted xs",style:"margin-top:8px;"}, "≈ $"+Number(a.costUsd).toFixed(4)));
+  return wrap(k);
 }
 function anAskBlock(d){
   if (__anAskUnsub){ try{__anAskUnsub();}catch(_){} __anAskUnsub = null; }
@@ -3197,8 +3202,8 @@ function anAskBlock(d){
   };
   listen();
   return el("div",{class:"card an-ask"},
-    el("div",{class:"an-ask__h"}, "Запитати по цьому аналізу"),
-    el("div",{class:"an-ask__sub"}, "Уточни щось по звіту: хто винен, де саме помилка, що з клієнтами. Відповідь побудована на цих же розмовах, орієнтовно ≈ $0.01."),
+    el("div",{class:"an-ask__tag"}, "ШІ-ЧАТ"), el("div",{class:"an-ask__h"}, "Запитати по цьому звіту"),
+    el("div",{class:"an-ask__sub"}, "Це окремий чат: усе вище — готовий звіт, а тут ти ставиш уточнюючі питання, і ШІ відповідає на них окремо. Орієнтовно ≈ $0.01 за питання."),
     list, note,
     el("div",{class:"an-ask__comp"},
       el("div",{class:"an-ask__chips"}, AN_ASK_CHIPS.map(t=>el("button",{class:"an-chip", type:"button", onclick:()=>{ ta.value = t; sync(); ta.focus(); }}, t))),

@@ -1753,7 +1753,7 @@ async function prioritizeCall(c, on){
   logAction(on ? "prioritize_call" : "unprioritize_call", c, null);
 }
 function prioBtnEl(c, cls, short){
-  const lab = ()=>c.priority ? (short ? "⏫✓" : "⏫ Першою ✓") : (short ? "⏫" : "⏫ Першою");
+  const lab = ()=>c.priority ? "✓ Першою в черзі" : "Першою в черзі";
   const b = el("button",{class:cls, type:"button", title:c.priority ? "Ця розмова піде першою в черзі. Натисни, щоб зняти пріоритет" : "Обробити першою з черги (поточні не зупиняються)",
     onclick: async (e)=>{ e.stopPropagation(); b.disabled = true;
       try { await prioritizeCall(c, !c.priority); b.textContent = lab(); toast(c.priority ? "Піде першою в черзі" : "Пріоритет знято","ok"); }
@@ -2678,7 +2678,6 @@ function renderCalls(root){
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
               try { const ok = await startCallAnalysis(c); if (ok) toast("Передано на виконання","ok"); else b.disabled=false; }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null,
-          canPrioritize(c) ? prioBtnEl(c,"btn btn-ghost btn-sm calls-act",true) : null,
           (canActOnCall(c) && ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(c.status)) ? el("button",{class:"btn btn-ghost btn-sm calls-act", title:"Скасувати",
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; if (!(await confirmStop(c))) return; b.disabled=true;
               try { const keep = await cancelCall(c); toast(keep ? "Скасовано — лишився попередній аналіз" : "Скасовано","ok"); }

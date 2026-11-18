@@ -3204,7 +3204,6 @@ function anAskBlock(d){
     el("div",{class:"an-ask__sub"}, "Це окремий чат: усе вище — готовий звіт, а тут ти ставиш уточнюючі питання, і ШІ відповідає на них окремо. Орієнтовно ≈ $0.01 за питання."),
     list, note,
     el("div",{class:"an-ask__comp"},
-      el("div",{class:"an-ask__chips"}, AN_ASK_CHIPS.map(t=>el("button",{class:"an-chip", type:"button", onclick:()=>{ ta.value = t; sync(); ta.focus(); }}, t))),
       el("div",{class:"an-ask__row"}, ta, btn)));
 }
 function anRenderReport(d){
@@ -3319,7 +3318,7 @@ function openAnalysisModal(){
       anSampleCard("A", st.A, st, repaint, null),
       st.B ? anSampleCard("B", st.B, st, repaint, ()=>{ st.B=null; repaint(); }) : el("div",{}, el("div",{class:"muted xs",style:"margin-bottom:6px;"},"Порівняти з:"), cmpBtns),
       el("div",{class:"an-lbl"},"Які розмови"), fmtSeg,
-      el("div",{class:"an-lbl"},"Питання до ШІ"), ta, el("div",{class:"an-chips"}, qs.map(q=>el("button",{class:"an-chip", type:"button", onclick:()=>{ st.question=q; ta.value=q; }}, q))),
+      el("div",{class:"an-lbl"},"Питання до ШІ"), ta,
       el("div",{class:"an-box an-run"},
         el("div",{class:"small"}, "Вибірка A: "+A.length+(st.B ? " · B: "+B.length : "")+" розмов"),
         el("div",{class:"muted xs", style:"line-height:1.45;"}, "Оцінка вартості: до ≈ $"+est.toFixed(2)+" (нова розмова ≈ $"+AN_EST_DEEP.toFixed(3)+" один раз, сам звіт ≈ $"+AN_EST_REPORT.toFixed(3)+"). Розмови, розібрані раніше, повторно не платяться. Це оцінка за аудитом моделей, не замір."),

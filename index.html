@@ -3130,6 +3130,7 @@ function anCallsList(d){
           el("span",{class:"an-cl__s"}, c&&c.score!=null ? Math.round(c.score)+"%" : "—")); }))));
 }
 let __anAskUnsub = null;
+const AN_EST_ASK = 0.02, AN_EST_CHAT = 0.02;
 const AN_WHO = { manager:"Менеджер", client:"Клієнт", circumstances:"Обставини" };
 const AN_ASK_CHIPS = ["То хто винен: я, клієнти чи обставини? Розпиши по пунктах.", "Де саме я помилився? Назви кожен момент.", "Які клієнти були нецільові й чому?"];
 function anAskView(a, nm){
@@ -3164,21 +3165,33 @@ function anAskBlock(d){
   const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(b)-ms(a)); list.replaceChildren(...asks.map(a=>anAskView(a,nm))); };
   btn.addEventListener("click", async ()=>{
     const q = ta.value.trim(); if (busy || q.length<3) return;
+    if (!(await confirmModal("Точно надіслати питання?", "«"+(q.length>140 ? q.slice(0,140)+"…" : q)+"»\nОцінка вартості: до ≈ $"+AN_EST_ASK.toFixed(2)+" за питання (зазвичай близько $0.002–0.01). Це платний запит до ШІ.", "Так, надіслати"))) return;
     busy = true; sync();
-    try { await col.add({ status:"pending", reportId:d.id, requestedBy:me, ts:firebase.firestore.FieldValue.serverTimestamp(), question:q.slice(0,600) }); ta.value = ""; }
-    catch(e){ toast("Не вдалося надіслати питання: "+((e&&e.message)||e).toString().slice(0,120),"err"); }
+    try { await col.add({ status:"pending", reportId:d.id, requestedBy:me, ts:firebase.firestore.FieldValue.serverTimestamp(), question:q.slice(0,600) }); ta.value = ""; toast("Питання надіслано, відповідь з'явиться нижче"); }
+    catch(e){ ta.value = ta.value || q; toast("Не вдалося надіслати питання: "+((e&&e.message)||e).toString().slice(0,120),"err"); }
     busy = false; sync();
   });
-  try {
-    __anAskUnsub = col.where("reportId","==",d.id).onSnapshot(sn=>{
-      asks = sn.docs.map(x=>Object.assign({ id:x.id }, x.data())).filter(x=>String(x.requestedBy||"").toLowerCase()===me); paint();
-    }, ()=>{});
-  } catch(_){}
+  const note = el("div",{class:"muted xs"});
+  let tries = 0, dead = false;
+  const listen = ()=>{
+    if (dead) return;
+    try {
+      __anAskUnsub = col.where("reportId","==",d.id).onSnapshot(sn=>{
+        tries = 0; note.textContent = "";
+        asks = sn.docs.map(x=>Object.assign({ id:x.id }, x.data())).filter(x=>String(x.requestedBy||"").toLowerCase()===me); paint();
+      }, e=>{
+        note.textContent = "Не вдалося прочитати відповіді ("+((e&&e.code)||"помилка")+"). Пробую ще раз…";
+        if (++tries<=5) setTimeout(()=>{ if (!dead && document.body.contains(note)) listen(); }, 3000*tries);
+        else note.textContent = "Відповіді не завантажуються. Онови сторінку.";
+      });
+    } catch(_){}
+  };
+  listen();
   return el("div",{class:"card an-ask"},
     el("div",{class:"an-ask__h"}, "Запитати по цьому аналізу"),
     el("div",{class:"an-ask__sub"}, "Уточни щось по звіту: хто винен, де саме помилка, що з клієнтами. Відповідь побудована на цих же розмовах, орієнтовно ≈ $0.01."),
     el("div",{class:"an-ask__chips"}, AN_ASK_CHIPS.map(t=>el("button",{class:"an-chip", type:"button", onclick:()=>{ ta.value = t; sync(); ta.focus(); }}, t))),
-    el("div",{class:"an-ask__row"}, ta, btn), list);
+    el("div",{class:"an-ask__row"}, ta, btn), note, list);
 }
 function anRenderReport(d){
   const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{}, ss = d.samples||[];
@@ -5138,6 +5151,7 @@ function renderCallDetail(root, callId){
     if (!aiAllowed()){ toast(aiDeniedMsg(),"err"); return; }
     const _cur = findCallAny(callId);
     if (!(_cur && (_cur.transcriptReady || _cur.status==="done"))){ toast("Чат доступний після транскрибації розмови","err"); return; }
+    if (!(await confirmModal("Точно надіслати питання ШІ?", "«"+(text.trim().length>140 ? text.trim().slice(0,140)+"…" : text.trim())+"»\nОцінка вартості: до ≈ $"+AN_EST_CHAT.toFixed(2)+" за питання (ШІ читає всю розшифровку розмови). Це платний запит.", "Так, надіслати"))) return false;
     const msg = {
       role: "user",
       text: text.trim(),
@@ -5172,7 +5186,7 @@ function renderCallDetail(root, callId){
       e.preventDefault(); if (chatInput.form && chatInput.form.requestSubmit) chatInput.form.requestSubmit();
     }
   });
-  const chatForm = el("form",{class:"cv-chat__form", onsubmit:(e)=>{ e.preventDefault(); const v = chatInput.value; if (!v.trim()) return; chatInput.value=""; chatFit(); sendMsg(v); }},
+  const chatForm = el("form",{class:"cv-chat__form", onsubmit:(e)=>{ e.preventDefault(); const v = chatInput.value; if (!v.trim()) return; chatInput.value=""; chatFit(); sendMsg(v).then(ok=>{ if (ok===false && !chatInput.value){ chatInput.value = v; chatFit(); } }); }},
     chatInput, (chatBtn = el("button",{type:"submit", title:"Надіслати",
       onclick:(e)=>{ const st = chatState(); if (st.busy){ e.preventDefault(); stopChat(st.targetId); } }},"→")));
   const chatQuick = el("div",{class:"cv-chat__quick"},

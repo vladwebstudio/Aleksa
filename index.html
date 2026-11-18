@@ -2926,7 +2926,7 @@ const MOCK_MGR_SCORES = [];
 
 /* =====================================================================
  *  «Аналіз» (адмін+): глибокий розбір розмов і порівняння вибірок (менеджер + період).
- *  Сайт лише збирає id розмов за фільтром і створює analysisReports/{id}; розбір і запити до ІІ робить сервер (report_analysis.py).
+ *  Сайт лише збирає id розмов за фільтром і створює analysisReports/{id}; розбір і запити до ШІ робить сервер (report_analysis.py).
  *  Нічого з існуючих сторінок не змінює: окрема модалка, окрема колекція.
  * ===================================================================== */
 const AN_EST_DEEP = 0.004, AN_EST_REPORT = 0.012;   // оцінка в $ (з аудиту моделей, НЕ замір): новий розбір однієї розмови / сам звіт
@@ -3031,7 +3031,7 @@ function anRenderReport(d){
   const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{};
   const sevCls = { critical:"badge--error", warn:"badge--retry", ok:"badge--done" }, sevTx = { critical:"Критично", warn:"Увага", ok:"Добре" };
   const blocks = [];
-  if (m.dryRun) blocks.push(el("div",{class:"an-note an-note--warn"}, "ЕМУЛЯЦІЯ: це заглушка, справжнього ІІ не викликано."));
+  if (m.dryRun) blocks.push(el("div",{class:"an-note an-note--warn"}, "ЕМУЛЯЦІЯ: це заглушка, справжнього ШІ не викликано."));
   blocks.push(el("div",{},
     el("h2",{class:"an-h"}, r.headline || "Звіт"),
     el("div",{class:"muted small"}, anTitle(d)+(d.question ? " · питання: «"+String(d.question).slice(0,160)+"»" : ""))));
@@ -3056,7 +3056,7 @@ function anRenderReport(d){
   const money = d.costUsd!=null ? " · витрачено ≈ $"+Number(d.costUsd).toFixed(4) : "";
   blocks.push(el("div",{class:"muted xs"},
     "Нових розборів розмов: "+(m.deepNew||0)+", з кешу: "+(m.deepCached||0)+(m.deepFailed?", з помилкою: "+m.deepFailed:"")+(m.noTranscript?", без розшифровки: "+m.noTranscript:"")+
-    (m.skippedOverLimit?", пропущено через ліміт: "+m.skippedOverLimit:"")+money+". Частку слів і довжину монологів ІІ оцінює приблизно: розшифровка не розділена на мовців."));
+    (m.skippedOverLimit?", пропущено через ліміт: "+m.skippedOverLimit:"")+money+". Частку слів і довжину монологів ШІ оцінює приблизно: розшифровка не розділена на мовців."));
   return el("div",{class:"an-report"}, blocks);
 }
 
@@ -3109,7 +3109,7 @@ function openAnalysisModal(){
       anSampleCard("A", st.A, st, repaint, null),
       st.B ? anSampleCard("B", st.B, st, repaint, ()=>{ st.B=null; repaint(); }) : el("div",{}, el("div",{class:"muted xs",style:"margin-bottom:6px;"},"Порівняти з:"), cmpBtns),
       el("div",{class:"an-lbl"},"Які розмови"), fmtSeg,
-      el("div",{class:"an-lbl"},"Питання до ІІ"), ta, el("div",{class:"an-chips"}, qs.map(q=>el("button",{class:"an-chip", type:"button", onclick:()=>{ st.question=q; ta.value=q; }}, q))),
+      el("div",{class:"an-lbl"},"Питання до ШІ"), ta, el("div",{class:"an-chips"}, qs.map(q=>el("button",{class:"an-chip", type:"button", onclick:()=>{ st.question=q; ta.value=q; }}, q))),
       el("div",{class:"an-box an-run"},
         el("div",{class:"small"}, "Вибірка A: "+A.length+(st.B ? " · B: "+B.length : "")+" розмов"),
         el("div",{class:"muted xs", style:"line-height:1.45;"}, "Оцінка вартості: до ≈ $"+est.toFixed(2)+" (нова розмова ≈ $"+AN_EST_DEEP.toFixed(3)+" один раз, сам звіт ≈ $"+AN_EST_REPORT.toFixed(3)+"). Розмови, розібрані раніше, повторно не платяться. Це оцінка за аудитом моделей, не замір."),
@@ -3176,7 +3176,7 @@ function openAnalysisModal(){
         el("h3",{},"Як це працює"),
         el("p",{},"1. Обираєш менеджера й період (можна додати другу вибірку для порівняння: інший менеджер або попередній період)."),
         el("p",{},"2. Сервер читає повні розшифровки цих розмов, знаходить конкретні моменти й фрази (монологи, зайву інформацію, ціну, заперечення, закриття) та зберігає розбір: повторно за нього не платиш."),
-        el("p",{},"3. ІІ порівнює вибірки й відповідає на твоє питання. Кожен висновок підкріплений цитатою з таймкодом: клік відкриває розмову."),
+        el("p",{},"3. ШІ порівнює вибірки й відповідає на твоє питання. Кожен висновок підкріплений цитатою з таймкодом: клік відкриває розмову."),
         el("p",{class:"muted small"},"Звіти зберігаються в історії ліворуч. Вікно можна закрити: аналіз піде далі на сервері.")));
       return;
     }

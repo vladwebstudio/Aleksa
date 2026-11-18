@@ -867,11 +867,11 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-fd__b{margin:8px 0 10px;line-height:1.55;white-space:pre-wrap;font-size:14px}
 .an-ev__h{gap:8px}.an-tc{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--border)}
 .an-ev__k{font-size:12px;font-weight:600}.an-ev__go{margin-left:auto;font-size:11.5px;color:var(--brand)}
-.an-ask{margin-top:28px;border:2px solid var(--brand);background:var(--surface)}.an-ask__tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;color:#fff;background:var(--brand);padding:2px 9px;border-radius:var(--r-pill);margin-bottom:8px}
+.an-ask{margin-top:28px;border:2px solid var(--brand);background:var(--surface);display:flex;flex-direction:column;height:min(640px,80vh);overflow:hidden}.an-ask>*{flex:0 0 auto}.an-ask>.an-ask__list{flex:1 1 auto}.an-ask__tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.08em;color:#fff;background:var(--brand);padding:2px 9px;border-radius:var(--r-pill);margin-bottom:8px}
 .an-bub{border-radius:14px;padding:10px 14px;font-size:14px;line-height:1.55;max-width:100%;box-sizing:border-box}.an-bub--me{margin-left:auto;max-width:88%;width:fit-content;background:var(--brand);color:#fff;border-bottom-right-radius:4px;white-space:pre-line}
 .an-bub--ai{margin-top:10px;background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:4px}.an-bub__who{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--brand);margin-bottom:6px}
 .an-ask{}.an-ask__h{font-weight:700;font-size:15px;margin-bottom:4px}.an-ask__sub{font-size:12.5px;color:var(--text-muted);margin-bottom:10px}
-.an-ask__comp{position:sticky;bottom:0;z-index:3;background:var(--surface);margin-top:12px;padding:10px 0 6px;border-top:1px solid var(--border)}.an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
+.an-ask__comp{flex:0 0 auto;background:var(--surface);margin-top:10px;padding:10px 0 2px;border-top:1px solid var(--border)}.an-ask__list{position:relative;flex:1 1 auto;min-height:120px;overflow-y:auto;padding-right:4px}.an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
 .an-think{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13.5px}.an-think i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse 1.2s infinite}.an-think i:nth-child(3){animation-delay:.2s}.an-think i:nth-child(4){animation-delay:.4s}
 .an-aq{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.an-aq__q{font-size:13.5px;line-height:1.5;color:var(--text-muted);margin-bottom:8px}.an-aq__q b{color:var(--text)}
 .an-aq__v{font-size:16px;font-weight:700;line-height:1.35;margin-bottom:8px}.an-aq__a{font-size:14px;line-height:1.6;white-space:pre-line;margin-bottom:10px}
@@ -891,7 +891,7 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 @media(max-width:900px){.an-wrap{grid-template-columns:1fr;overflow:auto}.an-left{border-right:0;border-bottom:1px solid var(--border);overflow:visible}.an-right{overflow:visible;padding:16px}.an-two,.an-cmp__g{grid-template-columns:1fr}}
 .an-back{display:none;align-items:center;justify-content:center;flex:0 0 auto;width:auto;white-space:nowrap;height:34px;padding:0 14px;border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;flex-shrink:0}
 @media(max-width:700px){.an-overlay{padding:0}.an-overlay .cv-modal{border-radius:0;height:100dvh}.an-overlay .cv-modal__header{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;grid-template-columns:none;padding:10px 12px;gap:8px;position:sticky;top:0;z-index:5}.an-overlay .an-back{width:auto;flex:0 0 auto}.an-overlay .cv-modal__sub{display:none}.an-overlay .cv-modal__title{font-size:16px}.an-ov-rep .an-back{display:inline-flex}.an-overlay .cv-modal__header>div{flex:1 1 auto;min-width:0}.an-overlay .cv-modal__header .cv-modal__close{margin-left:auto}.an-ov-rep .an-left{display:none}.an-overlay:not(.an-ov-rep) .an-right{display:none}.an-wrap{overflow:auto}}
-@media(max-width:700px){.an-wrap{grid-template-columns:minmax(0,1fr)}.an-right{min-width:0;padding:14px 12px}.an-smps{grid-template-columns:1fr}.an-kpis{grid-template-columns:1fr 1fr}.an-report,.an-report>*{min-width:0;max-width:100%;box-sizing:border-box}.an-report .card{overflow-x:auto}.an-report .card.an-ask{overflow:visible}.an-ask__row{flex-wrap:wrap}.an-ask__row .an-ta{flex:1 1 100%}.an-ask__row .btn{width:100%}.an-ask__chips .an-chip{white-space:normal;text-align:left}.an-aq__v,.an-aq__a,.an-pt__b,.an-ans__t,.an-fd__b,.an-h{overflow-wrap:anywhere}}
+@media(max-width:700px){.an-wrap{grid-template-columns:minmax(0,1fr)}.an-right{min-width:0;padding:14px 12px}.an-smps{grid-template-columns:1fr}.an-kpis{grid-template-columns:1fr 1fr}.an-report,.an-report>*{min-width:0;max-width:100%;box-sizing:border-box}.an-report .card{overflow-x:auto}.an-report .card.an-ask{overflow:hidden}.an-ask__row{flex-wrap:wrap}.an-ask__row .an-ta{flex:1 1 100%}.an-ask__row .btn{width:100%}.an-ask__chips .an-chip{white-space:normal;text-align:left}.an-aq__v,.an-aq__a,.an-pt__b,.an-ans__t,.an-fd__b,.an-h{overflow-wrap:anywhere}}
 </style>
 </head>
 <body>
@@ -3165,18 +3165,16 @@ function anAskBlock(d){
   const me = String(activeUser&&activeUser.email||"").toLowerCase();
   const nm = { A:anName((d.samples||[])[0]), B:anName((d.samples||[])[1]) };
   const col = db.collection("analysisAsks");
-  const list = el("div",{});
+  const list = el("div",{class:"an-ask__list"});
   const ta = el("textarea",{class:"an-ta", maxlength:"600", placeholder:"Напр.: То хто винен: я, клієнти чи обставини? Розпиши по пунктах."});
   const btn = el("button",{class:"btn btn-primary", type:"button", disabled:"disabled"}, "Запитати");
   let busy = false, asks = [];
   const sync = ()=>{ if (busy || ta.value.trim().length<3) btn.setAttribute("disabled","disabled"); else btn.removeAttribute("disabled"); };
   ta.addEventListener("input", sync);
-  const seenBusy = new Set();
+  let lastKey = "";
   const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(a)-ms(b)); list.replaceChildren(...asks.map(a=>anAskView(a,nm)));
-    let focus = null;
-    asks.forEach((a,i)=>{ const busy = a.status==="pending"||a.status==="running"; if (busy) seenBusy.add(a.id); else if (seenBusy.delete(a.id)) focus = list.children[i]; });
-    if (!focus && asks.some(a=>a.status==="pending"&&!seenBusy.has("x"+a.id))) { const i = asks.findIndex(a=>a.status==="pending"); if (i>=0) { asks.forEach(a=>seenBusy.add("x"+a.id)); focus = list.children[i]; } }
-    if (focus) { try { focus.scrollIntoView({behavior:"smooth", block:"nearest"}); } catch(_){} } };
+    const key = asks.map(x=>x.id+":"+x.status).join(",");
+    if (key !== lastKey){ lastKey = key; requestAnimationFrame(()=>{ const l = list.lastElementChild; list.scrollTop = l ? l.offsetTop : 0; }); } };
   btn.addEventListener("click", async ()=>{
     const q = ta.value.trim(); if (busy || q.length<3) return;
     if (!(await confirmModal("Точно надіслати питання?", "«"+(q.length>140 ? q.slice(0,140)+"…" : q)+"»\nОцінка вартості: до ≈ $"+AN_EST_ASK.toFixed(2)+" за питання (зазвичай близько $0.002–0.01). Це платний запит до ШІ.", "Так, надіслати"))) return;

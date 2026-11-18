@@ -1492,7 +1492,7 @@ async function cachedRead(key, sig, fetcher){
 // Підпис видимих полів усіх розмов: сторінки перемальовуються лише коли він змінився
 // (а не від кожного службового оновлення — прогрес, heartbeat, updatedAt тощо), інакше екран «моргає».
 function callsSig(){
-  try { return JSON.stringify((window.__calls||[]).map(c=>[c.id,c.status,c.stage,c.score,c.format,c.outcome,c.managerEmail,c.startedAt,c.title,c.client,c.summaryShort,c.isTest,c.error,c.durationSec,c.live,c.isLive,c.deleted])); }
+  try { return JSON.stringify((window.__calls||[]).map(c=>[c.id,c.status,c.stage,c.score,c.format,c.outcome,c.managerEmail,c.startedAt,c.title,c.client,c.summaryShort,c.isTest,c.error,c.durationSec,c.live,c.isLive,c.deleted,c.priority])); }
   catch(_){ return String(Math.random()); }
 }
 // слабкі місця з позначкою severity: "critical" (червоні, важливіші) або "warn" (жовті).
@@ -1743,6 +1743,23 @@ async function confirmStop(c){
     working ? "Обробка " + name + " буде зупинена, виконана на цьому кроці робота пропаде. Щоб продовжити, її доведеться запускати заново."
             : name + " буде знято з черги і отримає статус «Скасовано». Щоб обробити, її доведеться запускати заново.",
     working ? "Так, зупинити" : "Так, прибрати");
+}
+// «Першою в черзі»: лише адмін+. Воркер бере таку розмову наступною (поточну розшифровку не зупиняє), решта йдуть далі за чергою.
+const PRIO_STATUSES = ["queued","ended"];
+function canPrioritize(c){ return !!(activeUser && c && activeUser.role!==ROLES.MANAGER && PRIO_STATUSES.includes(c.status)); }
+async function prioritizeCall(c, on){
+  await db.collection("calls").doc(c.id).update(on ? { priority:true, priorityAt:Date.now()/1000 } : { priority:false, priorityAt:firebase.firestore.FieldValue.delete() });
+  c.priority = !!on;
+  logAction(on ? "prioritize_call" : "unprioritize_call", c, null);
+}
+function prioBtnEl(c, cls, short){
+  const lab = ()=>c.priority ? (short ? "⏫✓" : "⏫ Першою ✓") : (short ? "⏫" : "⏫ Першою");
+  const b = el("button",{class:cls, type:"button", title:c.priority ? "Ця розмова піде першою в черзі. Натисни, щоб зняти пріоритет" : "Обробити першою з черги (поточні не зупиняються)",
+    onclick: async (e)=>{ e.stopPropagation(); b.disabled = true;
+      try { await prioritizeCall(c, !c.priority); b.textContent = lab(); toast(c.priority ? "Піде першою в черзі" : "Пріоритет знято","ok"); }
+      catch(ex){ toast(ex.code||ex.message||String(ex),"err"); }
+      b.disabled = false; } }, lab());
+  return b;
 }
 async function cancelCall(c){
   let keep = false;
@@ -2661,6 +2678,7 @@ function renderCalls(root){
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; b.disabled=true;
               try { const ok = await startCallAnalysis(c); if (ok) toast("Передано на виконання","ok"); else b.disabled=false; }
               catch(ex){ toast(ex.code||ex.message||String(ex),"err"); b.disabled=false; } } }, "▶") : null,
+          canPrioritize(c) ? prioBtnEl(c,"btn btn-ghost btn-sm calls-act",true) : null,
           (canActOnCall(c) && ["queued","queued_for_analysis","ended","downloading","transcribing","analyzing"].includes(c.status)) ? el("button",{class:"btn btn-ghost btn-sm calls-act", title:"Скасувати",
             onclick: async (e)=>{ e.stopPropagation(); const b=e.currentTarget; if (!(await confirmStop(c))) return; b.disabled=true;
               try { const keep = await cancelCall(c); toast(keep ? "Скасовано — лишився попередній аналіз" : "Скасовано","ok"); }
@@ -4361,7 +4379,7 @@ function renderSettings(root){
     el("div",{class:"muted small",style:"line-height:1.5;"},"Кнопка-«запобіжник»: поки пауза, запити до ШІ не відправляються. Розмови завантажуються й розшифровуються, але чекають аналізу."));
 
   // ---- Журнал дій ----
-  const ACTION_LBL = { start_analysis:"запустив аналіз", restart_analysis:"перезапустив аналіз", retranscribe:"запустив якісну розшифровку", cancel_call:"скасував обробку", chat_question:"поставив питання ШІ-чату",
+  const ACTION_LBL = { start_analysis:"запустив аналіз", restart_analysis:"перезапустив аналіз", retranscribe:"запустив якісну розшифровку", cancel_call:"скасував обробку", prioritize_call:"поставив першою в черзі", unprioritize_call:"зняв пріоритет у черзі", chat_question:"поставив питання ШІ-чату",
     login_failed:"невдала спроба входу",auto_delete_product:"продукт видалено автоматично (14 днів у прихованих)",ai_limit_set:"змінив ліміт ШІ",save_script:"змінив",add_product:"додав продукт",delete_user:"видалив менеджера",restore_user:"відновив менеджера",purge_history:"стер історію розмов",remove_user_fully:"повністю прибрав менеджера",remove_product:"прибрав продукт",restore_product:"повернув продукт", ai_pause:"зупинив ШІ",ai_block_user:"закрив доступ до ШІ для",ai_unblock_user:"відкрив доступ до ШІ для",change_password:"змінив свій пароль",reset_password_mail:"надіслав лист для скидання пароля",set_ai_limit:"змінив ліміт витрат ШІ", ai_resume:"увімкнув ШІ",ai_resume_skip_queue:"увімкнув ШІ без аналізу черги", create_user:"створив користувача", change_role:"змінив роль", youtube_connect:"почав(-ла) підключення YouTube (код отримано)",youtube_connect_ok:"підключив(-ла) YouTube ✓",youtube_connect_fail:"не вдалося підключити YouTube ✗",youtube_connect_cancel:"скасував(-ла) підключення YouTube",youtube_reauth_needed:"YouTube потрібно підключити знову ⚠",login:"зайшов(-ла) в акаунт",logout:"вийшов(-ла) з акаунта" };
   const histList = el("div",{style:"display:flex;flex-direction:column;"});
   const histSel = el("select",{class:"input",style:"max-width:200px;"},
@@ -5274,6 +5292,7 @@ function openCallFullscreen(callId, soft){
     el("div",{class:"cv-hbtns"},
       (call && call.videoId && canActOnCall(call)) ? el("a",{href:"https://www.youtube.com/watch?v="+call.videoId, target:"_blank", rel:"noopener",
         class:"btn btn-ghost btn-sm", style:"margin-right:8px;text-decoration:none;"}, "Відкрити на YouTube ↗") : null,
+      canPrioritize(call) ? prioBtnEl(call,"btn btn-ghost btn-sm",false) : null,
       cancelBtn,
       restartBtn),
     el("button",{class:"cv-modal__close", title:"Закрити", onclick:()=>{ location.hash = "#/calls"; }}, ICONS.x())

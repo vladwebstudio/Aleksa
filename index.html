@@ -868,7 +868,7 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-ev__h{gap:8px}.an-tc{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--border)}
 .an-ev__k{font-size:12px;font-weight:600}.an-ev__go{margin-left:auto;font-size:11.5px;color:var(--brand)}
 .an-ask{margin-top:6px}.an-ask__h{font-weight:700;font-size:15px;margin-bottom:4px}.an-ask__sub{font-size:12.5px;color:var(--text-muted);margin-bottom:10px}
-.an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
+.an-ask__comp{position:sticky;bottom:0;z-index:3;background:var(--surface);margin-top:12px;padding:10px 0 6px;border-top:1px solid var(--border)}.an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
 .an-think{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13.5px}.an-think i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse 1.2s infinite}.an-think i:nth-child(3){animation-delay:.2s}.an-think i:nth-child(4){animation-delay:.4s}
 .an-aq{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.an-aq__q{font-size:13.5px;line-height:1.5;color:var(--text-muted);margin-bottom:8px}.an-aq__q b{color:var(--text)}
 .an-aq__v{font-size:16px;font-weight:700;line-height:1.35;margin-bottom:8px}.an-aq__a{font-size:14px;line-height:1.6;white-space:pre-line;margin-bottom:10px}
@@ -886,9 +886,9 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-why{font-size:12.5px;color:var(--danger);line-height:1.5}
 @media(max-width:900px){.an-smps,.an-kpis{grid-template-columns:1fr 1fr}.an-cl__r{grid-template-columns:1fr 44px}.an-cl__r .muted{display:none}}
 @media(max-width:900px){.an-wrap{grid-template-columns:1fr;overflow:auto}.an-left{border-right:0;border-bottom:1px solid var(--border);overflow:visible}.an-right{overflow:visible;padding:16px}.an-two,.an-cmp__g{grid-template-columns:1fr}}
-.an-back{display:none;align-items:center;height:36px;padding:0 12px;border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;flex-shrink:0}
-@media(max-width:700px){.an-overlay{padding:0}.an-overlay .cv-modal{border-radius:0;height:100dvh}.an-overlay .cv-modal__header{padding:10px 12px;gap:8px;position:sticky;top:0;z-index:5}.an-overlay .cv-modal__sub{display:none}.an-overlay .cv-modal__title{font-size:16px}.an-ov-rep .an-back{display:inline-flex}.an-ov-rep .an-left{display:none}.an-overlay:not(.an-ov-rep) .an-right{display:none}.an-wrap{overflow:auto}}
-@media(max-width:700px){.an-wrap{grid-template-columns:minmax(0,1fr)}.an-right{min-width:0;padding:14px 12px}.an-smps{grid-template-columns:1fr}.an-kpis{grid-template-columns:1fr 1fr}.an-report,.an-report>*{min-width:0;max-width:100%;box-sizing:border-box}.an-report .card{overflow-x:auto}.an-ask__row{flex-wrap:wrap}.an-ask__row .an-ta{flex:1 1 100%}.an-ask__row .btn{width:100%}.an-ask__chips .an-chip{white-space:normal;text-align:left}.an-aq__v,.an-aq__a,.an-pt__b,.an-ans__t,.an-fd__b,.an-h{overflow-wrap:anywhere}}
+.an-back{display:none;align-items:center;justify-content:center;flex:0 0 auto;width:auto;white-space:nowrap;height:34px;padding:0 14px;border-radius:var(--r-pill);background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;flex-shrink:0}
+@media(max-width:700px){.an-overlay{padding:0}.an-overlay .cv-modal{border-radius:0;height:100dvh}.an-overlay .cv-modal__header{padding:10px 12px;gap:8px;position:sticky;top:0;z-index:5}.an-overlay .cv-modal__sub{display:none}.an-overlay .cv-modal__title{font-size:16px}.an-ov-rep .an-back{display:inline-flex}.an-overlay .cv-modal__header>div{flex:1 1 auto;min-width:0}.an-overlay .cv-modal__header .cv-modal__close{margin-left:auto}.an-ov-rep .an-left{display:none}.an-overlay:not(.an-ov-rep) .an-right{display:none}.an-wrap{overflow:auto}}
+@media(max-width:700px){.an-wrap{grid-template-columns:minmax(0,1fr)}.an-right{min-width:0;padding:14px 12px}.an-smps{grid-template-columns:1fr}.an-kpis{grid-template-columns:1fr 1fr}.an-report,.an-report>*{min-width:0;max-width:100%;box-sizing:border-box}.an-report .card{overflow-x:auto}.an-report .card.an-ask{overflow:visible}.an-ask__row{flex-wrap:wrap}.an-ask__row .an-ta{flex:1 1 100%}.an-ask__row .btn{width:100%}.an-ask__chips .an-chip{white-space:normal;text-align:left}.an-aq__v,.an-aq__a,.an-pt__b,.an-ans__t,.an-fd__b,.an-h{overflow-wrap:anywhere}}
 </style>
 </head>
 <body>
@@ -3167,7 +3167,7 @@ function anAskBlock(d){
   const sync = ()=>{ if (busy || ta.value.trim().length<3) btn.setAttribute("disabled","disabled"); else btn.removeAttribute("disabled"); };
   ta.addEventListener("input", sync);
   const seenBusy = new Set();
-  const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(b)-ms(a)); list.replaceChildren(...asks.map(a=>anAskView(a,nm)));
+  const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(a)-ms(b)); list.replaceChildren(...asks.map(a=>anAskView(a,nm)));
     let focus = null;
     asks.forEach((a,i)=>{ const busy = a.status==="pending"||a.status==="running"; if (busy) seenBusy.add(a.id); else if (seenBusy.delete(a.id)) focus = list.children[i]; });
     if (!focus && asks.some(a=>a.status==="pending"&&!seenBusy.has("x"+a.id))) { const i = asks.findIndex(a=>a.status==="pending"); if (i>=0) { asks.forEach(a=>seenBusy.add("x"+a.id)); focus = list.children[i]; } }
@@ -3199,8 +3199,10 @@ function anAskBlock(d){
   return el("div",{class:"card an-ask"},
     el("div",{class:"an-ask__h"}, "Запитати по цьому аналізу"),
     el("div",{class:"an-ask__sub"}, "Уточни щось по звіту: хто винен, де саме помилка, що з клієнтами. Відповідь побудована на цих же розмовах, орієнтовно ≈ $0.01."),
-    el("div",{class:"an-ask__chips"}, AN_ASK_CHIPS.map(t=>el("button",{class:"an-chip", type:"button", onclick:()=>{ ta.value = t; sync(); ta.focus(); }}, t))),
-    el("div",{class:"an-ask__row"}, ta, btn), note, list);
+    list, note,
+    el("div",{class:"an-ask__comp"},
+      el("div",{class:"an-ask__chips"}, AN_ASK_CHIPS.map(t=>el("button",{class:"an-chip", type:"button", onclick:()=>{ ta.value = t; sync(); ta.focus(); }}, t))),
+      el("div",{class:"an-ask__row"}, ta, btn)));
 }
 function anRenderReport(d){
   const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{}, ss = d.samples||[];
@@ -3385,12 +3387,7 @@ function openAnalysisModal(){
     ov.classList.toggle("an-ov-rep", !!st.view);      // на телефоні: звіт відкривається окремим екраном з кнопкою «Назад»
     try { const w = ov.querySelector(".an-wrap"); if (w) w.scrollTop = 0; right.scrollTop = 0; } catch(_){}
     if (!st.view){
-      right.replaceChildren(el("div",{class:"an-empty"},
-        el("h3",{},"Як це працює"),
-        el("p",{},"1. Обираєш менеджера й період (можна додати другу вибірку для порівняння: інший менеджер або попередній період)."),
-        el("p",{},"2. Сервер читає повні розшифровки цих розмов, знаходить конкретні моменти й фрази (монологи, зайву інформацію, ціну, заперечення, закриття) та зберігає розбір: повторно за нього не платиш."),
-        el("p",{},"3. ШІ порівнює вибірки й відповідає на твоє питання. Кожен висновок підкріплений цитатою з таймкодом: клік відкриває розмову."),
-        el("p",{class:"muted small"},"Звіти зберігаються в історії ліворуч. Вікно можна закрити: аналіз піде далі на сервері.")));
+      right.replaceChildren(el("div",{class:"an-empty"}, el("h3",{},"Обери звіт з історії"), el("p",{class:"muted"},"або налаштуй вибірку ліворуч і запусти новий аналіз.")));
       return;
     }
     if (!d){ right.replaceChildren(el("div",{class:"muted"},"Завантаження…")); return; }

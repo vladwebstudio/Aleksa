@@ -3110,15 +3110,47 @@ function openAnalysisModal(){
       el("button",{class:"btn btn-ghost btn-sm", type:"button", title:"Видалити з історії", onclick:async ev=>{
         ev.stopPropagation();
         if (!(await confirmModal("Видалити звіт?", "Запис зникне з історії. Збережені розбори розмов лишаться.", "Видалити"))) return;
-        try { await db.collection("analysisReports").doc(h.id).delete(); hist = hist.filter(x=>x.id!==h.id); __anHist = hist; if (st.view===h.id){ openReport(null); } paintHist(); }
+        try { await db.collection("analysisReports").doc(h.id).delete(); hist = hist.filter(x=>x.id!==h.id); __anHist = hist; persistHist(); if (st.view===h.id){ openReport(null); } paintHist(); }
         catch(e){ toast("Не вдалося видалити","err"); } } }, ICONS.trash())
     )));
   }
+  // Історія звітів: IndexedDB. З бази читаємо лише НОВІ звіти (ts > останнього збереженого) і ті, що ще не завершені.
+  const anHyd = h=>{ if (h.tsMs!=null && !h.ts){ const ms=h.tsMs; h.ts = { toDate:()=>new Date(ms), toMillis:()=>ms }; } return h; };
+  const anDeh = h=>{ const o=Object.assign({},h); o.tsMs = (h.ts&&h.ts.toMillis) ? h.ts.toMillis() : (h.tsMs||0); delete o.ts; return o; };
+  const anFinal = h=>h.status==="done" || h.status==="error";
+  const anMs = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : (h.tsMs||0);
+  const histKey = ()=>"an-hist:"+me;
+  function persistHist(){ try { idbKV.set(histKey(), { sig:"v1", data:hist.map(anDeh), at:Date.now() }); } catch(_){} }
   async function loadHist(){
     try {
-      const sn = await db.collection("analysisReports").orderBy("ts","desc").limit(20).get();
-      hist = sn.docs.map(d=>Object.assign({ id:d.id }, d.data())); __anHist = hist; paintHist();
-    } catch(e){ histHost.replaceChildren(el("div",{class:"muted small"},"Історію не вдалося завантажити.")); }
+      if (!hist.length){   // перше відкриття в цій сесії: спершу з пристрою (0 читань)
+        const hit = await idbKV.get(histKey());
+        if (hit && hit.sig==="v1" && Array.isArray(hit.data)){ hist = hit.data.map(anHyd); __anHist = hist; paintHist(); }
+      }
+      const col = db.collection("analysisReports");
+      const lastMs = hist.reduce((m,h)=>Math.max(m,anMs(h)),0);
+      let fresh = [];
+      if (lastMs){
+        const sn = await col.where("ts",">",firebase.firestore.Timestamp.fromMillis(lastMs)).orderBy("ts","desc").limit(20).get();
+        fresh = sn.docs.map(d=>Object.assign({ id:d.id }, d.data()));
+      } else {
+        const sn = await col.orderBy("ts","desc").limit(20).get();
+        fresh = sn.docs.map(d=>Object.assign({ id:d.id }, d.data()));
+      }
+      // завершені не перечитуємо; тільки ті, що в кеші ще pending/running (їх статус міг змінитися)
+      const have = new Set(fresh.map(x=>x.id));
+      const stale = hist.filter(h=>!anFinal(h) && !have.has(h.id));
+      for (const h of stale){
+        try { const d = await col.doc(h.id).get(); fresh.push(d.exists ? Object.assign({ id:d.id }, d.data()) : { id:h.id, __gone:true }); } catch(_){}
+      }
+      if (fresh.length){
+        const map = new Map(hist.map(h=>[h.id,h]));
+        fresh.forEach(f=>{ if (f.__gone) map.delete(f.id); else map.set(f.id,f); });
+        hist = [...map.values()].sort((a,b)=>anMs(b)-anMs(a)).slice(0,20);
+        __anHist = hist; persistHist();
+      } else if (!lastMs){ __anHist = hist; }
+      paintHist();
+    } catch(e){ if (!hist.length) histHost.replaceChildren(el("div",{class:"muted small"},"Історію не вдалося завантажити.")); }
   }
   function paintRight(){
     const d = st.doc;
@@ -3137,7 +3169,7 @@ function openAnalysisModal(){
       const p = d.progress||{}, tot = p.total||0, dn = p.done||0, pct = tot ? Math.round(100*dn/tot) : (p.phase==="report" ? 100 : 4);
       const txt = d.status==="pending" ? "Заявку створено, чекаю сервер…" : p.phase==="deep" ? "Розбираю розмови: "+dn+" з "+tot : p.phase==="report" ? "Складаю звіт…" : "Готую розмови…";
       right.replaceChildren(el("div",{class:"an-prog"}, el("h3",{},txt), el("div",{class:"an-pbar"}, el("div",{style:"width:"+pct+"%;"})),
-        d.status==="pending" ? el("div",{class:"muted small"},"Якщо довго нічого не відбувається, сервер вимкнений: запусти його на Mac.") : el("div",{class:"muted small"},"Можна закрити вікно: звіт збережеться в історії."),
+        d.status==="pending" ? el("div",{class:"muted small"},"Якщо довго нічого не відбувається, сервер не працює або зайнятий розшифровкою.") : el("div",{class:"muted small"},"Можна закрити вікно: звіт збережеться в історії."),
         el("button",{class:"btn btn-ghost btn-sm", type:"button", disabled:anDis(!!d.cancelRequested), onclick:async()=>{ try{ await db.collection("analysisReports").doc(d.id).update({ cancelRequested:true }); toast("Скасовую…"); }catch(e){ toast("Не вдалося скасувати","err"); } }}, d.cancelRequested ? "Скасовую…" : "Скасувати")));
       return;
     }
@@ -3147,6 +3179,8 @@ function openAnalysisModal(){
     if (unsub){ try{unsub();}catch(_){} unsub=null; }
     st.view = id; st.doc = null; paintHist(); paintRight();
     if (!id) return;
+    const cached = hist.find(x=>x.id===id);
+    if (cached && anFinal(cached)){ st.doc = cached; paintRight(); return; }   // готовий звіт уже на пристрої: 0 читань
     unsub = db.collection("analysisReports").doc(id).onSnapshot(sn=>{
       if (!sn.exists){ st.view=null; st.doc=null; paintRight(); return; }
       const was = st.doc && st.doc.status;

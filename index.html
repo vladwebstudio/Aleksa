@@ -867,6 +867,13 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-fd__b{margin:8px 0 10px;line-height:1.55;white-space:pre-wrap;font-size:14px}
 .an-ev__h{gap:8px}.an-tc{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--border)}
 .an-ev__k{font-size:12px;font-weight:600}.an-ev__go{margin-left:auto;font-size:11.5px;color:var(--brand)}
+.an-ask{margin-top:6px}.an-ask__h{font-weight:700;font-size:15px;margin-bottom:4px}.an-ask__sub{font-size:12.5px;color:var(--text-muted);margin-bottom:10px}
+.an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
+.an-aq{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.an-aq__q{font-size:13.5px;line-height:1.5;color:var(--text-muted);margin-bottom:8px}.an-aq__q b{color:var(--text)}
+.an-aq__v{font-size:16px;font-weight:700;line-height:1.35;margin-bottom:8px}.an-aq__a{font-size:14px;line-height:1.6;white-space:pre-line;margin-bottom:10px}
+.an-pt{border:1px solid var(--border);border-left-width:3px;border-radius:var(--r-sm);padding:10px 12px;margin-top:8px;background:var(--surface-2)}
+.an-pt--manager{border-left-color:var(--danger)}.an-pt--client{border-left-color:var(--warn)}.an-pt--circumstances{border-left-color:var(--border-strong)}
+.an-pt__h{display:flex;gap:8px;align-items:center;margin-bottom:4px;font-size:14px}.an-pt__w{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}.an-pt__b{font-size:13.5px;line-height:1.55}
 .an-do--more{border-top:3px solid var(--success)}.an-do--stop{border-top:3px solid var(--danger)}
 .an-calls summary{cursor:pointer;font-weight:700;font-size:13.5px}
 .an-cl{margin-top:12px}.an-cl__h{font-size:13px;margin-bottom:4px}
@@ -3122,6 +3129,57 @@ function anCallsList(d){
           el("span",{class:"an-cl__t"}, c ? (c.client||c.title||id) : id),
           el("span",{class:"an-cl__s"}, c&&c.score!=null ? Math.round(c.score)+"%" : "—")); }))));
 }
+let __anAskUnsub = null;
+const AN_WHO = { manager:"Менеджер", client:"Клієнт", circumstances:"Обставини" };
+const AN_ASK_CHIPS = ["То хто винен: я, клієнти чи обставини? Розпиши по пунктах.", "Де саме я помилився? Назви кожен момент.", "Які клієнти були нецільові й чому?"];
+function anAskView(a, nm){
+  const r = a.result||{}, b = r.blame;
+  const kids = [el("div",{class:"an-aq__q"}, el("b",{},"Питання: "), a.question||"")];
+  if (a.status==="error") return el("div",{class:"an-aq"}, kids, el("div",{class:"an-note an-note--err"}, el("b",{},"Не вийшло: "), a.error||"невідома помилка"));
+  if (a.status!=="done") return el("div",{class:"an-aq"}, kids, el("div",{class:"muted small"}, a.status==="running" ? "Думаю над відповіддю…" : "Чекаю сервер…"));
+  if (r.verdict) kids.push(el("div",{class:"an-aq__v"}, r.verdict));
+  if (b) kids.push(el("div",{},
+    el("div",{class:"an-bar"}, el("div",{style:"width:"+b.manager+"%;background:var(--danger);"}), el("div",{style:"width:"+b.client+"%;background:var(--warn);"}), el("div",{style:"width:"+b.circumstances+"%;background:var(--border-strong);"})),
+    el("div",{class:"an-legend"}, el("span",{}, el("i",{class:"an-sq",style:"background:var(--danger)"}),"Менеджер "+b.manager+"%"), el("span",{}, el("i",{class:"an-sq",style:"background:var(--warn)"}),"Клієнт "+b.client+"%"), el("span",{}, el("i",{class:"an-sq",style:"background:var(--border-strong)"}),"Обставини "+b.circumstances+"%")),
+    b.note ? el("div",{class:"an-note-t"}, b.note) : null));
+  if (r.answer) kids.push(el("div",{class:"an-aq__a"}, r.answer));
+  (r.points||[]).forEach(p=>kids.push(el("div",{class:"an-pt an-pt--"+p.who},
+    el("div",{class:"an-pt__h"}, el("span",{class:"an-pt__w"}, AN_WHO[p.who]||p.who), el("b",{}, p.title)),
+    el("div",{class:"an-pt__b"}, p.body),
+    (p.evidence||[]).length ? el("div",{class:"an-evs"}, p.evidence.map(e=>anEvidence(e,nm))) : null)));
+  if (a.costUsd!=null) kids.push(el("div",{class:"muted xs",style:"margin-top:8px;"}, "≈ $"+Number(a.costUsd).toFixed(4)));
+  return el("div",{class:"an-aq"}, kids);
+}
+function anAskBlock(d){
+  if (__anAskUnsub){ try{__anAskUnsub();}catch(_){} __anAskUnsub = null; }
+  const me = String(activeUser&&activeUser.email||"").toLowerCase();
+  const nm = { A:anName((d.samples||[])[0]), B:anName((d.samples||[])[1]) };
+  const col = db.collection("analysisAsks");
+  const list = el("div",{});
+  const ta = el("textarea",{class:"an-ta", maxlength:"600", placeholder:"Напр.: То хто винен: я, клієнти чи обставини? Розпиши по пунктах."});
+  const btn = el("button",{class:"btn btn-primary", type:"button", disabled:"disabled"}, "Запитати");
+  let busy = false, asks = [];
+  const sync = ()=>{ if (busy || ta.value.trim().length<3) btn.setAttribute("disabled","disabled"); else btn.removeAttribute("disabled"); };
+  ta.addEventListener("input", sync);
+  const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(b)-ms(a)); list.replaceChildren(...asks.map(a=>anAskView(a,nm))); };
+  btn.addEventListener("click", async ()=>{
+    const q = ta.value.trim(); if (busy || q.length<3) return;
+    busy = true; sync();
+    try { await col.add({ status:"pending", reportId:d.id, requestedBy:me, ts:firebase.firestore.FieldValue.serverTimestamp(), question:q.slice(0,600) }); ta.value = ""; }
+    catch(e){ toast("Не вдалося надіслати питання: "+((e&&e.message)||e).toString().slice(0,120),"err"); }
+    busy = false; sync();
+  });
+  try {
+    __anAskUnsub = col.where("reportId","==",d.id).onSnapshot(sn=>{
+      asks = sn.docs.map(x=>Object.assign({ id:x.id }, x.data())).filter(x=>String(x.requestedBy||"").toLowerCase()===me); paint();
+    }, ()=>{});
+  } catch(_){}
+  return el("div",{class:"card an-ask"},
+    el("div",{class:"an-ask__h"}, "Запитати по цьому аналізу"),
+    el("div",{class:"an-ask__sub"}, "Уточни щось по звіту: хто винен, де саме помилка, що з клієнтами. Відповідь побудована на цих же розмовах, орієнтовно ≈ $0.01."),
+    el("div",{class:"an-ask__chips"}, AN_ASK_CHIPS.map(t=>el("button",{class:"an-chip", type:"button", onclick:()=>{ ta.value = t; sync(); ta.focus(); }}, t))),
+    el("div",{class:"an-ask__row"}, ta, btn), list);
+}
 function anRenderReport(d){
   const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{}, ss = d.samples||[];
   const nm = { A:anName(ss[0]), B:anName(ss[1]) };
@@ -3166,6 +3224,7 @@ function anRenderReport(d){
   blocks.push(el("div",{class:"muted xs"},
     "Нових розборів розмов: "+(m.deepNew||0)+", з кешу: "+(m.deepCached||0)+(m.deepFailed?", з помилкою: "+m.deepFailed:"")+(m.noTranscript?", без розшифровки: "+m.noTranscript:"")+
     (m.skippedOverLimit?", пропущено через ліміт: "+m.skippedOverLimit:"")+money+". Частку слів і довжину монологів ШІ оцінює приблизно: розшифровка не розділена на мовців."));
+  if (d.id && !m.dryRun) blocks.push(anAskBlock(d));
   return el("div",{class:"an-report"}, blocks);
 }
 
@@ -3185,7 +3244,7 @@ function openAnalysisModal(){
         el("button",{class:"cv-modal__close", type:"button", title:"Закрити", onclick:()=>close()}, ICONS.x())),
       el("div",{class:"an-wrap"}, left, right)));
   const onKey = e => { if (e.key==="Escape" && !document.querySelector(".modal-bg")) close(); };
-  function close(){ if (unsub){ try{unsub();}catch(_){} unsub=null; } document.removeEventListener("keydown", onKey, true); ov.remove(); }
+  function close(){ if (unsub){ try{unsub();}catch(_){} unsub=null; } if (__anAskUnsub){ try{__anAskUnsub();}catch(_){} __anAskUnsub=null; } document.removeEventListener("keydown", onKey, true); ov.remove(); }
 
   function prevPeriodOf(s){
     if (!s.period || s.period==="all") return null;

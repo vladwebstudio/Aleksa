@@ -781,6 +781,50 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
   .navbar__item .nl{display:none}
   .navbar__item::after{content:attr(data-short);display:block}
 }
+/* «Аналіз» (адмін+): модалка на повне вікно */
+.an-wrap{display:grid;grid-template-columns:400px 1fr;flex:1;min-height:0}
+.an-left{border-right:1px solid var(--border);overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--surface-2)}
+.an-right{overflow:auto;padding:22px 28px}
+.an-lbl{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.an-box{border:1px solid var(--border);border-radius:var(--r-md);padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
+.an-box__h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.an-tag{display:inline-flex;align-items:center;justify-content:center;padding:2px 8px;border-radius:var(--r-pill);background:var(--brand-soft);color:var(--brand);font-size:11.5px;font-weight:700}
+.an-seg{flex-wrap:wrap;border-radius:12px;width:100%;box-sizing:border-box}
+.an-seg button{padding:5px 10px;font-size:12.5px}
+.an-chips{display:flex;flex-wrap:wrap;gap:6px}
+.an-chip{padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;cursor:pointer}
+.an-chip:hover{border-color:var(--brand);color:var(--brand)}
+.an-ta{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical}
+.an-ta:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);outline:none}
+.an-run .btn{width:100%}
+.an-hi{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;margin-bottom:6px}
+.an-hi:hover,.an-hi.is-active{border-color:var(--brand)}
+.an-hi__t{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-report{display:flex;flex-direction:column;gap:14px;max-width:980px}
+.an-h{margin:0 0 4px;font-size:22px;letter-spacing:-.01em;line-height:1.25}
+.an-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.an-tbl th,.an-tbl td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left}
+.an-tbl th{color:var(--text-muted);font-weight:600;font-size:12px}
+.an-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:10px 0 6px;background:var(--surface-2)}
+.an-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--text-muted)}
+.an-cmp{padding:10px 0;border-bottom:1px solid var(--border)}
+.an-cmp:last-child{border-bottom:0}
+.an-cmp__g{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0;font-size:13.5px}
+.an-evs{display:flex;flex-direction:column;gap:8px}
+.an-ev{display:block;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--border);border-left:3px solid var(--border-strong);background:var(--surface-2);color:var(--text);text-decoration:none}
+.an-ev:hover{border-color:var(--brand)}
+.an-ev--hurt{border-left-color:var(--danger)} .an-ev--helped{border-left-color:var(--success)}
+.an-ev__h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.an-ev__q{margin-top:4px;font-size:13.5px;line-height:1.45}
+.an-two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.an-ul{margin:8px 0 0;padding-left:18px;line-height:1.5;font-size:13.5px}
+.an-note{padding:10px 14px;border-radius:var(--r-sm);font-size:13.5px}
+.an-note--warn{background:var(--warn-soft);color:var(--warn-text)} .an-note--err{background:var(--danger-soft);color:var(--danger)}
+.an-prog{max-width:520px;margin:40px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.an-pbar{width:100%;height:10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden}
+.an-pbar>div{height:100%;background:var(--brand);transition:width .4s var(--ease)}
+.an-empty{max-width:640px;margin:30px auto;line-height:1.55}
+@media(max-width:900px){.an-wrap{grid-template-columns:1fr;overflow:auto}.an-left{border-right:0;border-bottom:1px solid var(--border);overflow:visible}.an-right{overflow:visible;padding:16px}.an-two,.an-cmp__g{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -2861,6 +2905,273 @@ const MOCK_TEAM_PROGRESS = {
 };
 const MOCK_MGR_SCORES = [];
 
+/* =====================================================================
+ *  «Аналіз» (адмін+): глибокий розбір розмов і порівняння вибірок (менеджер + період).
+ *  Сайт лише збирає id розмов за фільтром і створює analysisReports/{id}; розбір і запити до ІІ робить сервер (report_analysis.py).
+ *  Нічого з існуючих сторінок не змінює: окрема модалка, окрема колекція.
+ * ===================================================================== */
+const AN_EST_DEEP = 0.004, AN_EST_REPORT = 0.012;   // оцінка в $ (з аудиту моделей, НЕ замір): новий розбір однієї розмови / сам звіт
+const AN_MAX_CALLS = 150;                            // ліміт розмов на вибірку (узгоджено з сервером і правилами)
+const AN_FORMATS = [
+  { key:"full",     label:"Повні діагностики", match:c=>isFullCall(c) },
+  { key:"followup", label:"Дожими",            match:c=>c.format==="followup" },
+  { key:"all",      label:"Усі розмови",       match:null },
+];
+const AN_LEN_DAYS = { today:1, week:7, month:30, year:365 };
+const AN_KIND = { monologue:"монолог", info_dump:"забагато інформації", filler_phrase:"фраза-паразит", strong_question:"сильне питання",
+  missed_question:"пропущене питання", price:"ціна", objection:"заперечення", close:"закриття", rapport:"контакт", promise:"обіцянка", other:"інше" };
+let __anHist = null;   // кеш історії звітів у межах сесії
+
+const anDis = c => (c ? "disabled" : null);   // el(): атрибут disabled:false усе одно вимкнув би кнопку
+function anIso(d){ return d ? new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10) : ""; }
+function anRange(s){
+  if (s.period==="custom" && s.from && s.to) return { from:s.from, to:new Date(s.to.getTime()+86400000) };
+  return { from: periodStart(s.period==="custom" ? "all" : s.period), to: new Date(8640000000000000) };
+}
+function anSelect(s, fmtKey){
+  const r = anRange(s), f = AN_FORMATS.find(x=>x.key===fmtKey) || AN_FORMATS[0];
+  return callsAll().filter(c => {
+    if (c.status!=="done" || c.isTest) return false;
+    if (s.who!=="all" && String(c.managerEmail||"").toLowerCase()!==s.who) return false;
+    if (f.match && !f.match(c)) return false;
+    const t = new Date(c.startedAt); return t>=r.from && t<r.to;
+  }).sort((a,b)=>new Date(b.startedAt)-new Date(a.startedAt));
+}
+function anPeriodLabel(s){
+  if (s.period==="custom" && s.from && s.to) return fmtDateShort(s.from)+" — "+fmtDateShort(s.to);
+  return (PERIODS_PROG.find(p=>p.key===s.period)||PERIODS_PROG[2]).label.toLowerCase();
+}
+function anWho(who){ return who==="all" ? "Уся команда" : (userByEmail(who).name || who); }
+function anPeople(){
+  const em = new Set();
+  callsAll().forEach(c=>{ const e=String(c.managerEmail||"").toLowerCase(); if (e) em.add(e); });
+  managersList().forEach(m=>{ const e=String(m.email||"").toLowerCase(); if (e) em.add(e); });
+  return [...em].map(e=>{ const u=userByEmail(e); return { value:e, label:u.name||e, name:u.name, email:e, photoURL:u.photoURL||null }; })
+    .sort((a,b)=>a.label.localeCompare(b.label,"uk"));
+}
+function anTitle(d){
+  const ss = d.samples||[];
+  const one = s => (s.managerName||s.manager||"?")+(s.from ? " "+s.from.slice(5).split("-").reverse().join(".")+"–"+String(s.to||"").slice(5).split("-").reverse().join(".") : " · весь час");
+  return ss.map(one).join("  vs  ");
+}
+
+function anSampleCard(label, s, st, repaint, onRemove){
+  const people = [{ value:"all", label:"Уся команда" }].concat(anPeople());
+  const ava = o => o.value==="all" ? el("div",{class:"ava ava--sm",style:"background:var(--surface-2);color:var(--text-muted);"}, ICONS.users()) : userAva(o,"sm");
+  const dd = dropdown({ value:s.who, options:people, onChange:v=>{ s.who=v; repaint(); },
+    renderButton:o=>el("span",{class:"dd__btn-left"}, ava(o), el("span",{class:"dd__btn-label"}, o.label)),
+    renderItem:o=>el("div",{style:"display:flex;align-items:center;gap:10px;flex:1;"}, ava(o), el("span",{}, o.label)) });
+  const seg = el("div",{class:"period-seg an-seg"}, PERIODS_PROG.map(p=>el("button",{ type:"button", class:s.period===p.key?"is-active":"",
+    onclick:()=>{ s.period=p.key; s.from=null; s.to=null; repaint(); } }, p.label)));
+  const preset = (s.period==="custom" || s.period==="all") ? null : { s:periodStart(s.period), e:new Date() };
+  const dr = dateRangeBtn({ start: preset?preset.s:s.from, end: preset?preset.e:s.to,
+    defaultRange:()=>{ const d=new Date(); return { start:new Date(d.getFullYear(), d.getMonth(), 1), end:d }; },
+    onChange:({start,end})=>{ s.from=start; s.to=end; s.period="custom"; repaint(); } });
+  const n = anSelect(s, st.fmt).length;
+  return el("div",{class:"an-box"},
+    el("div",{class:"an-box__h"}, el("span",{class:"an-tag"}, "Вибірка "+label),
+      onRemove ? el("button",{class:"btn btn-ghost btn-sm", type:"button", onclick:onRemove}, "Прибрати") : null),
+    dd, seg, dr,
+    el("div",{class:"small "+(n?"":"muted")}, n ? ("Розмов у вибірці: "+n+(n>AN_MAX_CALLS ? " (візьму "+AN_MAX_CALLS+" найновіших)" : "")) : "Готових розмов за цим фільтром немає"));
+}
+
+function anStatsTable(stats, hasB){
+  const f = v => (v==null ? "—" : v);
+  const pc = v => (v==null ? "—" : v+"%");
+  const rows = [
+    ["Розмов", s=>s.calls], ["Закрито (оплата / завдаток)", s=>s.calls ? s.won+" ("+pc(s.winRate)+")" : "—"],
+    ["Домовились про крок", s=>s.followUp], ["Відмова", s=>s.lost], ["Середній бал", s=>f(s.avgScore)],
+    ["Частка слів менеджера (≈)", s=>pc(s.avgManagerShare)], ["Найдовший монолог (≈ с)", s=>f(s.avgLongestMonologueSec)],
+    ["Забагато інформації клієнту", s=>s.infoDumpPct==null ? "—" : s.infoDumpPct+"% розмов"],
+    ["Просив рішення", s=>pc(s.askedDecisionPct)], ["Давав спосіб оплати", s=>pc(s.offeredPaymentPct)],
+  ];
+  const A = stats.A, B = stats.B;
+  return el("table",{class:"an-tbl"},
+    el("thead",{}, el("tr",{}, el("th",{},""), el("th",{},"A"), hasB ? el("th",{},"B") : null)),
+    el("tbody",{}, rows.map(r=>el("tr",{}, el("td",{class:"muted"}, r[0]), el("td",{}, String(r[1](A))), hasB ? el("td",{}, String(r[1](B))) : null))));
+}
+function anCriteriaTable(stats, hasB){
+  const names = [];
+  ["A","B"].forEach(k=>{ ((stats[k]||{}).criteria||[]).forEach(c=>{ if (!names.includes(c.name)) names.push(c.name); }); });
+  if (!names.length) return null;
+  const get = (k,n)=>{ const c=((stats[k]||{}).criteria||[]).find(x=>x.name===n); return c ? c.avg : null; };
+  const col = v => v==null ? "" : v>=80 ? "color:var(--success);" : v>=60 ? "color:var(--warn);" : "color:var(--danger);";
+  return el("table",{class:"an-tbl"},
+    el("thead",{}, el("tr",{}, el("th",{},"Критерій"), el("th",{},"A"), hasB ? el("th",{},"B") : null, hasB ? el("th",{},"A − B") : null)),
+    el("tbody",{}, names.map(n=>{ const a=get("A",n), b=hasB?get("B",n):null, d=(a!=null&&b!=null)?Math.round((a-b)*10)/10:null;
+      return el("tr",{}, el("td",{},n), el("td",{style:col(a)}, a==null?"—":String(a)), hasB ? el("td",{style:col(b)}, b==null?"—":String(b)) : null,
+        hasB ? el("td",{style:d==null?"":(d>=0?"color:var(--success);":"color:var(--danger);")}, d==null?"—":(d>0?"+":"")+d) : null); })));
+}
+function anEvidence(e){
+  return el("a",{ class:"an-ev an-ev--"+e.effect, href:location.href.split("#")[0]+"#/calls/"+encodeURIComponent(e.callId), target:"_blank", rel:"noopener" },
+    el("div",{class:"an-ev__h"}, el("span",{class:"an-tag"}, e.sample), el("span",{class:"tc"}, e.ts),
+      el("span",{class:"muted xs"}, (AN_KIND[e.kind]||e.kind)+" · "+(e.callTitle||"розмова")+(e.date?" · "+e.date:""))),
+    el("div",{class:"an-ev__q"}, "«"+e.quote+"»"));
+}
+function anRenderReport(d){
+  const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{};
+  const sevCls = { critical:"badge--error", warn:"badge--retry", ok:"badge--done" }, sevTx = { critical:"Критично", warn:"Увага", ok:"Добре" };
+  const blocks = [];
+  if (m.dryRun) blocks.push(el("div",{class:"an-note an-note--warn"}, "ЕМУЛЯЦІЯ: це заглушка, справжнього ІІ не викликано."));
+  blocks.push(el("div",{},
+    el("h2",{class:"an-h"}, r.headline || "Звіт"),
+    el("div",{class:"muted small"}, anTitle(d)+(d.question ? " · питання: «"+String(d.question).slice(0,160)+"»" : ""))));
+  if (r.answer) blocks.push(el("div",{class:"card an-ans"}, el("div",{class:"an-lbl"},"Відповідь"), el("div",{style:"white-space:pre-wrap;line-height:1.55;margin-top:6px;"}, r.answer)));
+  const c = r.cause;
+  if (c) blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"},"Чия це проблема"),
+    el("div",{class:"an-bar"}, el("div",{style:"width:"+c.manager+"%;background:var(--danger);"}), el("div",{style:"width:"+c.client+"%;background:var(--warn);"}), el("div",{style:"width:"+c.circumstances+"%;background:var(--border-strong);"})),
+    el("div",{class:"an-legend"}, el("span",{}, "Менеджер "+c.manager+"%"), el("span",{}, "Клієнт "+c.client+"%"), el("span",{}, "Обставини "+c.circumstances+"%")),
+    c.note ? el("div",{class:"muted small",style:"margin-top:6px;"}, c.note) : null));
+  blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"}, hasB ? "Цифри: A проти B" : "Цифри"), anStatsTable(st, hasB), anCriteriaTable(st, hasB)));
+  if ((r.compare||[]).length) blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"},"Де різниця"),
+    r.compare.map(x=>el("div",{class:"an-cmp"}, el("div",{style:"font-weight:600;"}, x.topic),
+      el("div",{class:"an-cmp__g"}, el("div",{}, el("span",{class:"an-tag"},"A"), " "+x.A), el("div",{}, el("span",{class:"an-tag"},"B"), " "+x.B)),
+      x.gap ? el("div",{class:"muted small"}, x.gap) : null))));
+  (r.findings||[]).forEach(f=>blocks.push(el("div",{class:"card"},
+    el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap;"}, el("span",{class:"badge "+(sevCls[f.severity]||"badge--retry")}, sevTx[f.severity]||"Увага"), el("b",{}, f.title)),
+    el("div",{style:"margin:8px 0;line-height:1.5;white-space:pre-wrap;"}, f.body),
+    (f.evidence||[]).length ? el("div",{class:"an-evs"}, f.evidence.map(anEvidence)) : el("div",{class:"muted xs"},"Без цитат: висновок спирається на цифри."))));
+  if ((r.doMore||[]).length || (r.stopDoing||[]).length) blocks.push(el("div",{class:"an-two"},
+    el("div",{class:"card"}, el("div",{class:"an-lbl"},"Робити більше"), el("ul",{class:"an-ul"}, (r.doMore||[]).map(x=>el("li",{}, x)))),
+    el("div",{class:"card"}, el("div",{class:"an-lbl"},"Прибрати"), el("ul",{class:"an-ul"}, (r.stopDoing||[]).map(x=>el("li",{}, x))))));
+  const money = d.costUsd!=null ? " · витрачено ≈ $"+Number(d.costUsd).toFixed(4) : "";
+  blocks.push(el("div",{class:"muted xs"},
+    "Нових розборів розмов: "+(m.deepNew||0)+", з кешу: "+(m.deepCached||0)+(m.deepFailed?", з помилкою: "+m.deepFailed:"")+(m.noTranscript?", без розшифровки: "+m.noTranscript:"")+
+    (m.skippedOverLimit?", пропущено через ліміт: "+m.skippedOverLimit:"")+money+". Частку слів і довжину монологів ІІ оцінює приблизно: розшифровка не розділена на мовців."));
+  return el("div",{class:"an-report"}, blocks);
+}
+
+function openAnalysisModal(){
+  if (!activeUser || activeUser.role===ROLES.MANAGER || document.querySelector(".an-overlay")) return;
+  const me = String(activeUser.email||"").toLowerCase();
+  const people = anPeople();
+  const st = { A:{ who: progressState.who!=="all" ? progressState.who : (people.some(p=>p.value===me) ? me : "all"),
+                    period: progressState.period, from: progressState.from, to: progressState.to },
+               B:null, fmt:"full", question:"", view:null, doc:null, busy:false };
+  let unsub = null, hist = __anHist || [];
+  const left = el("div",{class:"an-left"}), right = el("div",{class:"an-right"}), histHost = el("div",{});
+  const ov = el("div",{class:"cv-overlay an-overlay"},
+    el("div",{class:"cv-modal"},
+      el("div",{class:"cv-modal__header"},
+        el("div",{style:"display:flex;align-items:center;gap:10px;flex:1;min-width:0;"}, ICONS.brain(),
+          el("div",{}, el("h2",{class:"cv-modal__title"},"Аналіз"), el("div",{class:"cv-modal__sub"},"Глибокий розбір розмов за повною розшифровкою і порівняння"))),
+        el("button",{class:"cv-modal__close", type:"button", title:"Закрити", onclick:()=>close()}, ICONS.x())),
+      el("div",{class:"an-wrap"}, left, right)));
+  const onKey = e => { if (e.key==="Escape" && !document.querySelector(".modal-bg")) close(); };
+  function close(){ if (unsub){ try{unsub();}catch(_){} unsub=null; } document.removeEventListener("keydown", onKey, true); ov.remove(); }
+
+  function prevPeriodOf(s){
+    if (s.period==="all") return null;
+    const r = anRange(s), len = s.period==="custom" ? (r.to - r.from) : (AN_LEN_DAYS[s.period]||0)*86400000;
+    if (!len) return null;
+    const from = periodStart(s.period==="custom" ? "all" : s.period);
+    const f0 = s.period==="custom" ? r.from : from;
+    return { who:s.who, period:"custom", from:new Date(f0.getTime()-len), to:new Date(f0.getTime()-86400000) };
+  }
+  function paintLeft(){
+    const repaint = () => paintLeft();
+    const A = anSelect(st.A, st.fmt), B = st.B ? anSelect(st.B, st.fmt) : [];
+    const nA = Math.min(A.length, AN_MAX_CALLS), nB = Math.min(B.length, AN_MAX_CALLS);
+    const est = (nA+nB)*AN_EST_DEEP + AN_EST_REPORT;
+    const canRun = !st.busy && nA>0 && (!st.B || nB>0);
+    const pp = prevPeriodOf(st.A);
+    const other = people.find(p=>p.value!==st.A.who);
+    const cmpBtns = el("div",{class:"an-chips"},
+      el("button",{class:"btn btn-ghost btn-sm", type:"button", disabled:anDis(!other), onclick:()=>{ st.B = Object.assign({}, st.A, { who:other.value }); repaint(); }}, "+ З іншим менеджером (той самий період)"),
+      el("button",{class:"btn btn-ghost btn-sm", type:"button", disabled:anDis(!pp||st.A.who==="all"), title:pp?"":"Для «Весь час» попереднього періоду немає", onclick:()=>{ st.B = pp; repaint(); }}, "+ З попереднім періодом"));
+    const fmtSeg = el("div",{class:"period-seg an-seg"}, AN_FORMATS.map(f=>el("button",{type:"button", class:st.fmt===f.key?"is-active":"", onclick:()=>{ st.fmt=f.key; repaint(); }}, f.label)));
+    const qs = (st.B ? ["Чим сильніший менеджер B?","Чому в одного виходить продавати, а в іншого ні?","Що я кажу не так або зайве?"]
+                     : ["Чому не закриваються?","Що я кажу не так або зайве?","Яких питань мені бракує в розмові?"]);
+    const ta = el("textarea",{class:"an-ta", rows:"4", maxlength:"1000", placeholder:"Що з'ясувати? Наприклад: чому зараз не закриваються: вина клієнтів чи моя?"});
+    ta.value = st.question; ta.addEventListener("input", ()=>{ st.question = ta.value; });
+    const runBtn = el("button",{class:"btn btn-primary", type:"button", disabled:anDis(!canRun), onclick:()=>run(A,B,est)}, st.busy ? "Створюю заявку…" : "Запустити аналіз");
+    left.replaceChildren(
+      el("div",{class:"an-lbl"},"Що аналізуємо"),
+      anSampleCard("A", st.A, st, repaint, null),
+      st.B ? anSampleCard("B", st.B, st, repaint, ()=>{ st.B=null; repaint(); }) : el("div",{}, el("div",{class:"muted xs",style:"margin-bottom:6px;"},"Порівняти з:"), cmpBtns),
+      el("div",{class:"an-lbl"},"Які розмови"), fmtSeg,
+      el("div",{class:"an-lbl"},"Питання до ІІ"), ta, el("div",{class:"an-chips"}, qs.map(q=>el("button",{class:"an-chip", type:"button", onclick:()=>{ st.question=q; ta.value=q; }}, q))),
+      el("div",{class:"an-box an-run"},
+        el("div",{class:"small"}, "Вибірка A: "+A.length+(st.B ? " · B: "+B.length : "")+" розмов"),
+        el("div",{class:"muted xs", style:"line-height:1.45;"}, "Оцінка вартості: до ≈ $"+est.toFixed(2)+" (нова розмова ≈ $"+AN_EST_DEEP.toFixed(3)+" один раз, сам звіт ≈ $"+AN_EST_REPORT.toFixed(3)+"). Розмови, розібрані раніше, повторно не платяться. Це оцінка за аудитом моделей, не замір."),
+        runBtn),
+      el("div",{class:"an-lbl"},"Історія"), histHost);
+    paintHist();
+  }
+  function paintHist(){
+    if (!hist.length){ histHost.replaceChildren(el("div",{class:"muted small"},"Поки порожньо. Запусти перший аналіз.")); return; }
+    histHost.replaceChildren(...hist.map(h=>el("div",{class:"an-hi"+(h.id===st.view?" is-active":""), onclick:()=>openReport(h.id)},
+      el("div",{style:"min-width:0;flex:1;"},
+        el("div",{class:"an-hi__t"}, anTitle(h)),
+        el("div",{class:"muted xs"}, (h.status==="done" ? "✓" : h.status==="error" ? "⚠" : "⏳")+" "+(h.ts&&h.ts.toDate ? h.ts.toDate().toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "")+
+          (h.costUsd!=null ? " · $"+Number(h.costUsd).toFixed(3) : "")+(h.question ? " · "+String(h.question).slice(0,40) : ""))),
+      el("button",{class:"btn btn-ghost btn-sm", type:"button", title:"Видалити з історії", onclick:async ev=>{
+        ev.stopPropagation();
+        if (!(await confirmModal("Видалити звіт?", "Запис зникне з історії. Збережені розбори розмов лишаться.", "Видалити"))) return;
+        try { await db.collection("analysisReports").doc(h.id).delete(); hist = hist.filter(x=>x.id!==h.id); __anHist = hist; if (st.view===h.id){ openReport(null); } paintHist(); }
+        catch(e){ toast("Не вдалося видалити","err"); } } }, ICONS.trash())
+    )));
+  }
+  async function loadHist(){
+    try {
+      const sn = await db.collection("analysisReports").orderBy("ts","desc").limit(20).get();
+      hist = sn.docs.map(d=>Object.assign({ id:d.id }, d.data())); __anHist = hist; paintHist();
+    } catch(e){ histHost.replaceChildren(el("div",{class:"muted small"},"Історію не вдалося завантажити.")); }
+  }
+  function paintRight(){
+    const d = st.doc;
+    if (!st.view){
+      right.replaceChildren(el("div",{class:"an-empty"},
+        el("h3",{},"Як це працює"),
+        el("p",{},"1. Обираєш менеджера й період (можна додати другу вибірку для порівняння: інший менеджер або попередній період)."),
+        el("p",{},"2. Сервер читає повні розшифровки цих розмов, знаходить конкретні моменти й фрази (монологи, зайву інформацію, ціну, заперечення, закриття) та зберігає розбір: повторно за нього не платиш."),
+        el("p",{},"3. ІІ порівнює вибірки й відповідає на твоє питання. Кожен висновок підкріплений цитатою з таймкодом: клік відкриває розмову."),
+        el("p",{class:"muted small"},"Звіти зберігаються в історії ліворуч. Вікно можна закрити: аналіз піде далі на сервері.")));
+      return;
+    }
+    if (!d){ right.replaceChildren(el("div",{class:"muted"},"Завантаження…")); return; }
+    if (d.status==="error"){ right.replaceChildren(el("div",{class:"an-note an-note--err"}, el("b",{},"Не вийшло: "), d.error||"невідома помилка"), el("div",{class:"muted small",style:"margin-top:10px;"},"Готові розбори розмов збережені, повторний запуск їх не оплачує.")); return; }
+    if (d.status!=="done"){
+      const p = d.progress||{}, tot = p.total||0, dn = p.done||0, pct = tot ? Math.round(100*dn/tot) : (p.phase==="report" ? 100 : 4);
+      const txt = d.status==="pending" ? "Заявку створено, чекаю сервер…" : p.phase==="deep" ? "Розбираю розмови: "+dn+" з "+tot : p.phase==="report" ? "Складаю звіт…" : "Готую розмови…";
+      right.replaceChildren(el("div",{class:"an-prog"}, el("h3",{},txt), el("div",{class:"an-pbar"}, el("div",{style:"width:"+pct+"%;"})),
+        d.status==="pending" ? el("div",{class:"muted small"},"Якщо довго нічого не відбувається, сервер вимкнений: запусти його на Mac.") : el("div",{class:"muted small"},"Можна закрити вікно: звіт збережеться в історії."),
+        el("button",{class:"btn btn-ghost btn-sm", type:"button", disabled:anDis(!!d.cancelRequested), onclick:async()=>{ try{ await db.collection("analysisReports").doc(d.id).update({ cancelRequested:true }); toast("Скасовую…"); }catch(e){ toast("Не вдалося скасувати","err"); } }}, d.cancelRequested ? "Скасовую…" : "Скасувати")));
+      return;
+    }
+    right.replaceChildren(anRenderReport(d));
+  }
+  function openReport(id){
+    if (unsub){ try{unsub();}catch(_){} unsub=null; }
+    st.view = id; st.doc = null; paintHist(); paintRight();
+    if (!id) return;
+    unsub = db.collection("analysisReports").doc(id).onSnapshot(sn=>{
+      if (!sn.exists){ st.view=null; st.doc=null; paintRight(); return; }
+      const was = st.doc && st.doc.status;
+      st.doc = Object.assign({ id:sn.id }, sn.data()); paintRight();
+      if (was && was!==st.doc.status && (st.doc.status==="done" || st.doc.status==="error")) loadHist();
+    }, ()=>toast("Не вдалося прочитати звіт","err"));
+  }
+  async function run(A,B,est){
+    if (st.busy) return;
+    if (est>0.5 && !(await confirmModal("Дорогий запуск", "Оцінка вартості до ≈ $"+est.toFixed(2)+" (якщо жодну розмову ще не розбирали). Запустити?", "Запустити"))) return;
+    st.busy = true; paintLeft();
+    const mk = (lb,s,calls)=>{ const r=anRange(s); return { label:lb, manager:s.who, managerName:anWho(s.who),
+      from: s.period==="all" ? "" : anIso(s.period==="custom" ? s.from : periodStart(s.period)), to: s.period==="all" ? "" : anIso(s.period==="custom" ? s.to : new Date()),
+      fmt:st.fmt, total:calls.length, callIds:calls.slice(0,AN_MAX_CALLS).map(c=>c.id) }; };
+    const samples = [mk("A",st.A,A)].concat(st.B ? [mk("B",st.B,B)] : []);
+    try {
+      const ref = await db.collection("analysisReports").add({ status:"pending", requestedBy:me, ts:firebase.firestore.FieldValue.serverTimestamp(),
+        question:String(st.question||"").trim().slice(0,1000), maxNew:Math.min(300, samples.reduce((n,s)=>n+s.callIds.length,0)), estUsd:Math.round(est*10000)/10000, samples });
+      st.busy = false; paintLeft(); openReport(ref.id); loadHist();
+    } catch(e){ st.busy = false; paintLeft(); toast("Не вдалося створити заявку: "+((e&&e.message)||e).toString().slice(0,120),"err"); }
+  }
+
+  document.body.appendChild(ov); document.addEventListener("keydown", onKey, true);
+  paintLeft(); paintRight();
+  if (!__anHist) loadHist();
+}
+
 function renderProgress(root){
   // Менеджер бачить прогрес так само, як адмін: уся команда або вибраний менеджер (лише перегляд)
   const isMgrRole = !!(activeUser && activeUser.role===ROLES.MANAGER);
@@ -3166,7 +3477,8 @@ function renderProgress(root){
     el("div",{class:"page-header"},
       el("div",{style:"display:flex;align-items:center;gap:12px;flex-wrap:wrap;"}, backBtn, el("h1",{class:"page-title"}, title)),
       el("div",{style:"display:flex;gap:10px;align-items:center;flex-wrap:wrap;"},
-        picker, dateDD, periodSeg)),
+        picker, dateDD, periodSeg,
+        isMgrRole ? null : el("button",{class:"btn btn-primary", type:"button", title:"Глибокий аналіз розмов і порівняння менеджерів", onclick:()=>openAnalysisModal()}, ICONS.brain(), "Аналіз"))),
 
     el("div",{class:"muted", style:"margin-top:-10px;margin-bottom:var(--s-5);font-size:13px;"},
       "Показано ", el("b",{style:"color:var(--text);"}, whoLabel), " за ", el("b",{style:"color:var(--text);"}, periodLbl), "."),

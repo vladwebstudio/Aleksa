@@ -1655,7 +1655,7 @@ function confirmModal(title, text, okLabel){
     const bg = el("div",{class:"modal-bg", onclick:(e)=>{ if (e.target===bg) done(false); }},
       el("div",{class:"modal", style:"max-width:420px;"},
         el("h2",{}, title),
-        el("div",{style:"margin:6px 0 18px;line-height:1.5;color:var(--text-muted);font-size:14px;"}, text),
+        el("div",{style:"margin:6px 0 18px;line-height:1.5;white-space:pre-line;color:var(--text-muted);font-size:14px;"}, text),
         el("div",{class:"modal-actions"},
           el("button",{class:"btn btn-ghost", onclick:()=>done(false)},"Ні, скасувати"),
           el("button",{class:"btn btn-primary", onclick:()=>done(true)}, okLabel||"Так, запустити"))));
@@ -3312,7 +3312,11 @@ function openAnalysisModal(){
   }
   async function run(A,B,est){
     if (st.busy) return;
-    if (est>0.5 && !(await confirmModal("Дорогий запуск", "Оцінка вартості до ≈ $"+est.toFixed(2)+" (якщо жодну розмову ще не розбирали). Запустити?", "Запустити"))) return;
+    {   // підтвердження завжди: запуск платний
+      const lab = (k,st,arr)=>(k?"Вибірка B":"Вибірка A")+": "+anWho(st.who)+", "+anPeriodLabel(st)+" — "+Math.min(arr.length,AN_MAX_CALLS)+" розм.";
+      const txt = lab(0,st.A,A)+(st.B ? "\n"+lab(1,st.B,B) : "")+"\nФормат: "+anFmtLbl(st.fmt)+"\nОцінка вартості: до ≈ $"+est.toFixed(2)+" (розмови, розібрані раніше, повторно не платяться).";
+      if (!(await confirmModal("Точно запустити аналіз?", txt, "Так, запустити"))) return;
+    }
     st.busy = true; paintLeft();
     const mk = (lb,s,calls)=>{ const r=anRange(s); return { label:lb, manager:s.who, managerName:anWho(s.who),
       from: s.period==="all" ? "" : anIso(s.period==="custom" ? s.from : periodStart(s.period)), to: s.period==="all" ? "" : anIso(s.period==="custom" ? s.to : new Date()),

@@ -3258,7 +3258,7 @@ function openAnalysisModal(){
   if (!activeUser || activeUser.role===ROLES.MANAGER || document.querySelector(".an-overlay")) return;
   const me = String(activeUser.email||"").toLowerCase();
   const people = anPeople();
-  const st = { A:{ who:"", period:"", from:null, to:null },     // нічого не обрано наперед: менеджера й період адмін вибирає сам
+  const st = { A:{ who:"all", period:"", from:null, to:null },     // за замовчуванням уся команда (можна обрати менеджера); період адмін вибирає сам
                B:null, fmt:"full", question:"", view:null, doc:null, busy:false };
   let unsub = null, hist = __anHist || [];
   const left = el("div",{class:"an-left"}), right = el("div",{class:"an-right"}), histHost = el("div",{});

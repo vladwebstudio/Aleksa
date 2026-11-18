@@ -826,6 +826,53 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-pbar{width:100%;height:10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden}
 .an-pbar>div{height:100%;background:var(--brand);transition:width .4s var(--ease)}
 .an-empty{max-width:640px;margin:30px auto;line-height:1.55}
+.an-hi{align-items:flex-start}
+.an-hi__main{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.an-hi__s{display:flex;align-items:center;gap:6px;font-size:13px;flex-wrap:wrap;line-height:1.35}
+.an-hi__q{font-size:12px;color:var(--text-muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4}
+.an-hi__f{display:flex;flex-wrap:wrap;align-items:center}
+.an-st--done{color:var(--success);font-weight:600}.an-st--error{color:var(--danger);font-weight:600}.an-st--pending,.an-st--running{color:var(--warn-text);font-weight:600}
+.an-dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none;vertical-align:middle}
+.an-dot--a{background:var(--brand)}.an-dot--b{background:#14b8a6}
+.an-tag--b{background:rgba(20,184,166,.16);color:#2dd4bf}
+.an-smps{display:grid;grid-template-columns:1fr 1fr;gap:12px}.an-smps--1{grid-template-columns:1fr}
+.an-smp{border:1px solid var(--border);border-top:3px solid var(--brand);border-radius:var(--r-md);padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:4px}
+.an-smp--b{border-top-color:#14b8a6}
+.an-smp__top{display:flex;align-items:center;gap:8px}.an-smp__n{font-size:16px}
+.an-smp__m{font-size:13px;color:var(--text-muted)}
+.an-smp__k{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;margin-top:4px}
+.an-q{margin-top:8px;padding:9px 12px;border-left:3px solid var(--border-strong);background:var(--surface-2);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:13.5px;line-height:1.5;color:var(--text-muted)}
+.an-q__l{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-right:4px}
+.an-ans__t{white-space:pre-wrap;line-height:1.6;margin-top:8px;font-size:14.5px}
+.an-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.an-kpi{border:1px solid var(--border);border-radius:var(--r-md);padding:12px;background:var(--surface)}
+.an-kpi__r{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap}
+.an-v{display:flex;flex-direction:column}.an-v b{font-size:20px;line-height:1.1}.an-v small{font-size:11.5px;color:var(--text-muted);margin-top:2px}
+.an-v--a b{color:var(--brand)}.an-v--b b{color:#2dd4bf}
+.an-tbl th{white-space:nowrap}
+.an-tbl--crit td,.an-tbl--crit th{vertical-align:middle}
+.an-cv{font-weight:700;font-size:14px}
+.an-mb{height:5px;border-radius:3px;background:var(--surface-2);margin-top:4px;min-width:90px;overflow:hidden}.an-mb i{display:block;height:100%;border-radius:3px}
+.an-delta{display:inline-block;padding:2px 8px;border-radius:var(--r-pill);font-weight:700;font-size:12.5px;background:var(--surface-2);color:var(--text-muted)}
+.an-delta.is-up{background:var(--success-soft,rgba(34,197,94,.15));color:var(--success)}.an-delta.is-down{background:var(--danger-soft);color:var(--danger)}
+.an-sq{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.an-note-t{margin-top:8px;font-size:13px;color:var(--text-muted);line-height:1.5}
+.an-cmp__t{font-weight:700;font-size:14.5px}
+.an-cmp__g{align-items:stretch}
+.an-cmp__c{padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);border-top:2px solid var(--brand);line-height:1.5}
+.an-cmp__c--b{border-top-color:#14b8a6}
+.an-cmp__n{font-weight:700;font-size:12.5px;margin-bottom:4px}
+.an-fd{border-left:4px solid var(--warn)}.an-fd--critical{border-left-color:var(--danger)}.an-fd--ok{border-left-color:var(--success)}
+.an-fd__h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:15px}
+.an-fd__b{margin:8px 0 10px;line-height:1.55;white-space:pre-wrap;font-size:14px}
+.an-ev__h{gap:8px}.an-tc{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 7px;border-radius:6px;background:var(--surface);border:1px solid var(--border)}
+.an-ev__k{font-size:12px;font-weight:600}.an-ev__go{margin-left:auto;font-size:11.5px;color:var(--brand)}
+.an-do--more{border-top:3px solid var(--success)}.an-do--stop{border-top:3px solid var(--danger)}
+.an-calls summary{cursor:pointer;font-weight:700;font-size:13.5px}
+.an-cl{margin-top:12px}.an-cl__h{font-size:13px;margin-bottom:4px}
+.an-cl__r{display:grid;grid-template-columns:130px 1fr 52px;gap:10px;padding:6px 8px;border-radius:var(--r-sm);font-size:13px;color:var(--text);text-decoration:none}
+.an-cl__r:hover{background:var(--surface-2)}.an-cl__t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.an-cl__s{text-align:right;font-weight:600}
+@media(max-width:900px){.an-smps,.an-kpis{grid-template-columns:1fr 1fr}.an-cl__r{grid-template-columns:1fr 44px}.an-cl__r .muted{display:none}}
 @media(max-width:900px){.an-wrap{grid-template-columns:1fr;overflow:auto}.an-left{border-right:0;border-bottom:1px solid var(--border);overflow:visible}.an-right{overflow:visible;padding:16px}.an-two,.an-cmp__g{grid-template-columns:1fr}}
 </style>
 </head>
@@ -2968,12 +3015,6 @@ function anPeople(){
   return [...em].map(e=>{ const u=userByEmail(e); return { value:e, label:u.name||e, name:u.name, email:e, photoURL:u.photoURL||null }; })
     .sort((a,b)=>a.label.localeCompare(b.label,"uk"));
 }
-function anTitle(d){
-  const ss = d.samples||[];
-  const one = s => (s.managerName||s.manager||"?")+(s.from ? " "+s.from.slice(5).split("-").reverse().join(".")+"–"+String(s.to||"").slice(5).split("-").reverse().join(".") : " · весь час");
-  return ss.map(one).join("  vs  ");
-}
-
 function anSampleCard(label, s, st, repaint, onRemove){
   const people = [{ value:"all", label:"Уся команда" }].concat(anPeople());
   const ava = o => o.value==="all" ? el("div",{class:"ava ava--sm",style:"background:var(--surface-2);color:var(--text-muted);"}, ICONS.users()) : userAva(o,"sm");
@@ -2994,7 +3035,22 @@ function anSampleCard(label, s, st, repaint, onRemove){
     el("div",{class:"small "+(n?"":"muted")}, n ? ("Розмов у вибірці: "+n+(n>AN_MAX_CALLS ? " (візьму "+AN_MAX_CALLS+" найновіших)" : "")) : "Готових розмов за цим фільтром немає"));
 }
 
-function anStatsTable(stats, hasB){
+const AN_MON = ["січ","лют","бер","квіт","трав","черв","лип","серп","вер","жовт","лист","груд"];
+function anD(iso){ const p=String(iso||"").split("-"); return p.length===3 ? { d:+p[2], m:+p[1]-1, y:+p[0] } : null; }
+function anPer(s){   // «16–18 лист.», «28 лист. – 2 груд.», «весь час»
+  const a=anD(s&&s.from), b=anD(s&&s.to);
+  if (!a || !b) return "весь час";
+  let t = (a.y===b.y && a.m===b.m) ? (a.d===b.d ? String(a.d) : a.d+"–"+b.d)+" "+AN_MON[a.m] : a.d+" "+AN_MON[a.m]+" – "+b.d+" "+AN_MON[b.m];
+  const yr = new Date().getFullYear();
+  return t + ((a.y!==yr || b.y!==yr) ? " "+b.y : "");
+}
+const anFmtLbl = k => (AN_FORMATS.find(f=>f.key===k)||{}).label || "Усі розмови";
+const anName = s => (s && (s.managerName || (s.manager ? anWho(s.manager) : ""))) || "?";
+const anKey = i => i ? "b" : "a";
+function anTitle(d){ return (d.samples||[]).map(anName).join(" ↔ "); }
+function anDot(i){ return el("span",{class:"an-dot an-dot--"+anKey(i)}); }
+
+function anStatsTable(stats, hasB, ss){
   const f = v => (v==null ? "—" : v);
   const pc = v => (v==null ? "—" : v+"%");
   const rows = [
@@ -3005,54 +3061,97 @@ function anStatsTable(stats, hasB){
     ["Просив рішення", s=>pc(s.askedDecisionPct)], ["Давав спосіб оплати", s=>pc(s.offeredPaymentPct)],
   ];
   const A = stats.A, B = stats.B;
+  const head = (i)=>el("th",{}, anDot(i), " ", anName((ss||[])[i]));
   return el("table",{class:"an-tbl"},
-    el("thead",{}, el("tr",{}, el("th",{},""), el("th",{},"A"), hasB ? el("th",{},"B") : null)),
+    el("thead",{}, el("tr",{}, el("th",{},""), head(0), hasB ? head(1) : null)),
     el("tbody",{}, rows.map(r=>el("tr",{}, el("td",{class:"muted"}, r[0]), el("td",{}, String(r[1](A))), hasB ? el("td",{}, String(r[1](B))) : null))));
 }
-function anCriteriaTable(stats, hasB){
+function anCriteriaTable(stats, hasB, ss){
   const names = [];
   ["A","B"].forEach(k=>{ ((stats[k]||{}).criteria||[]).forEach(c=>{ if (!names.includes(c.name)) names.push(c.name); }); });
   if (!names.length) return null;
   const get = (k,n)=>{ const c=((stats[k]||{}).criteria||[]).find(x=>x.name===n); return c ? c.avg : null; };
-  const col = v => v==null ? "" : v>=80 ? "color:var(--success);" : v>=60 ? "color:var(--warn);" : "color:var(--danger);";
-  return el("table",{class:"an-tbl"},
-    el("thead",{}, el("tr",{}, el("th",{},"Критерій"), el("th",{},"A"), hasB ? el("th",{},"B") : null, hasB ? el("th",{},"A − B") : null)),
+  const clr = v => v==null ? "var(--border-strong)" : v>=80 ? "var(--success)" : v>=60 ? "var(--warn)" : "var(--danger)";
+  const cell = v => el("td",{}, el("div",{class:"an-cv", style:"color:"+clr(v)+";"}, v==null?"—":String(v)), el("div",{class:"an-mb"}, el("i",{style:"width:"+Math.max(0,Math.min(100,v||0))+"%;background:"+clr(v)+";"})));
+  return el("table",{class:"an-tbl an-tbl--crit"},
+    el("thead",{}, el("tr",{}, el("th",{},"Критерій"), el("th",{}, anDot(0)," ",anName((ss||[])[0])), hasB ? el("th",{}, anDot(1)," ",anName((ss||[])[1])) : null, hasB ? el("th",{},"Різниця") : null)),
     el("tbody",{}, names.map(n=>{ const a=get("A",n), b=hasB?get("B",n):null, d=(a!=null&&b!=null)?Math.round((a-b)*10)/10:null;
-      return el("tr",{}, el("td",{},n), el("td",{style:col(a)}, a==null?"—":String(a)), hasB ? el("td",{style:col(b)}, b==null?"—":String(b)) : null,
-        hasB ? el("td",{style:d==null?"":(d>=0?"color:var(--success);":"color:var(--danger);")}, d==null?"—":(d>0?"+":"")+d) : null); })));
+      return el("tr",{}, el("td",{},n), cell(a), hasB ? cell(b) : null,
+        hasB ? el("td",{}, d==null ? "—" : el("span",{class:"an-delta "+(d>0?"is-up":d<0?"is-down":"")}, (d>0?"+":"")+d)) : null); })));
 }
-function anEvidence(e){
+function anEvidence(e, nm){
+  const k = e.sample==="B" ? "b" : "a";
   return el("a",{ class:"an-ev an-ev--"+e.effect, href:location.href.split("#")[0]+"#/calls/"+encodeURIComponent(e.callId), target:"_blank", rel:"noopener" },
-    el("div",{class:"an-ev__h"}, el("span",{class:"an-tag"}, e.sample), el("span",{class:"tc"}, e.ts),
-      el("span",{class:"muted xs"}, (AN_KIND[e.kind]||e.kind)+" · "+(e.callTitle||"розмова")+(e.date?" · "+e.date:""))),
+    el("div",{class:"an-ev__h"}, el("span",{class:"an-tag an-tag--"+k}, nm[e.sample]||e.sample), el("span",{class:"an-tc"}, e.ts),
+      el("span",{class:"an-ev__k"}, AN_KIND[e.kind]||e.kind), el("span",{class:"muted xs"}, (e.callTitle||"розмова")+(e.date?" · "+e.date:"")),
+      el("span",{class:"an-ev__go"}, "відкрити розмову ↗")),
     el("div",{class:"an-ev__q"}, "«"+e.quote+"»"));
 }
+function anSmpCard(s, i, stats){
+  const st = stats || {}, k = anKey(i);
+  return el("div",{class:"an-smp an-smp--"+k},
+    el("div",{class:"an-smp__top"}, el("span",{class:"an-tag an-tag--"+k}, i?"B":"A"), el("b",{class:"an-smp__n"}, anName(s))),
+    el("div",{class:"an-smp__m"}, anPer(s)+" · "+anFmtLbl(s.fmt)),
+    el("div",{class:"an-smp__k"},
+      el("span",{}, el("b",{}, String(st.calls!=null ? st.calls : (s.callIds||[]).length)), " розмов"),
+      st.avgScore!=null ? el("span",{}, "сер. бал ", el("b",{}, String(st.avgScore))) : null,
+      st.won!=null ? el("span",{}, "закрито ", el("b",{}, String(st.won))) : null,
+      (s.total && s.callIds && s.total>s.callIds.length) ? el("span",{class:"muted"}, "(взято "+s.callIds.length+" з "+s.total+")") : null));
+}
+function anCallsList(d){
+  const byId = new Map(callsAll().map(c=>[c.id,c]));
+  const base = location.href.split("#")[0]+"#/calls/";
+  const ss = d.samples||[];
+  return el("details",{class:"card an-calls", open:"open"},
+    el("summary",{}, "Які розмови увійшли в аналіз ("+ss.reduce((n,s)=>n+(s.callIds||[]).length,0)+")"),
+    ss.map((s,i)=>el("div",{class:"an-cl"},
+      el("div",{class:"an-cl__h"}, el("span",{class:"an-tag an-tag--"+anKey(i)}, i?"B":"A"), el("b",{}, " "+anName(s)), el("span",{class:"muted"}, " · "+anPer(s)+" · "+anFmtLbl(s.fmt))),
+      (s.callIds||[]).map(id=>{ const c = byId.get(id);
+        return el("a",{class:"an-cl__r", href:base+encodeURIComponent(id), target:"_blank", rel:"noopener"},
+          el("span",{class:"muted"}, c&&c.startedAt ? fmtDate(c.startedAt)+" "+fmtTime(c.startedAt) : "—"),
+          el("span",{class:"an-cl__t"}, c ? (c.client||c.title||id) : id),
+          el("span",{class:"an-cl__s"}, c&&c.score!=null ? Math.round(c.score)+"%" : "—")); }))));
+}
 function anRenderReport(d){
-  const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{};
+  const r = d.result||{}, st = r.stats||{}, hasB = !!st.B, m = r.meta||{}, ss = d.samples||[];
+  const nm = { A:anName(ss[0]), B:anName(ss[1]) };
   const sevCls = { critical:"badge--error", warn:"badge--retry", ok:"badge--done" }, sevTx = { critical:"Критично", warn:"Увага", ok:"Добре" };
   const blocks = [];
   if (m.dryRun) blocks.push(el("div",{class:"an-note an-note--warn"}, "ЕМУЛЯЦІЯ: це заглушка, справжнього ШІ не викликано."));
+  blocks.push(el("div",{class:"an-smps"+(hasB?"":" an-smps--1")}, ss.map((s,i)=>anSmpCard(s,i,i?st.B:st.A))));
   blocks.push(el("div",{},
     el("h2",{class:"an-h"}, r.headline || "Звіт"),
-    el("div",{class:"muted small"}, anTitle(d)+(d.question ? " · питання: «"+String(d.question).slice(0,160)+"»" : ""))));
-  if (r.answer) blocks.push(el("div",{class:"card an-ans"}, el("div",{class:"an-lbl"},"Відповідь"), el("div",{style:"white-space:pre-wrap;line-height:1.55;margin-top:6px;"}, r.answer)));
+    d.question ? el("div",{class:"an-q"}, el("span",{class:"an-q__l"},"Питання"), " "+d.question) : null));
+  if (r.answer) blocks.push(el("div",{class:"card an-ans"}, el("div",{class:"an-lbl"},"Відповідь"), el("div",{class:"an-ans__t"}, r.answer)));
+  const kpi = (lbl, fn)=>el("div",{class:"an-kpi"}, el("div",{class:"an-lbl"}, lbl),
+    el("div",{class:"an-kpi__r"}, el("div",{class:"an-v an-v--a"}, el("b",{}, String(fn(st.A))), el("small",{}, nm.A)),
+      hasB ? el("div",{class:"an-v an-v--b"}, el("b",{}, String(fn(st.B))), el("small",{}, nm.B)) : null));
+  const pc = v => v==null ? "—" : v+"%", fv = v => v==null ? "—" : v;
+  blocks.push(el("div",{class:"an-kpis"},
+    kpi("Закрито", s=>s.calls ? s.won+" з "+s.calls : "—"), kpi("Середній бал", s=>fv(s.avgScore)),
+    kpi("Просив рішення", s=>pc(s.askedDecisionPct)), kpi("Найдовший монолог, с", s=>fv(s.avgLongestMonologueSec))));
   const c = r.cause;
   if (c) blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"},"Чия це проблема"),
     el("div",{class:"an-bar"}, el("div",{style:"width:"+c.manager+"%;background:var(--danger);"}), el("div",{style:"width:"+c.client+"%;background:var(--warn);"}), el("div",{style:"width:"+c.circumstances+"%;background:var(--border-strong);"})),
-    el("div",{class:"an-legend"}, el("span",{}, "Менеджер "+c.manager+"%"), el("span",{}, "Клієнт "+c.client+"%"), el("span",{}, "Обставини "+c.circumstances+"%")),
-    c.note ? el("div",{class:"muted small",style:"margin-top:6px;"}, c.note) : null));
-  blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"}, hasB ? "Цифри: A проти B" : "Цифри"), anStatsTable(st, hasB), anCriteriaTable(st, hasB)));
+    el("div",{class:"an-legend"}, el("span",{}, el("i",{class:"an-sq",style:"background:var(--danger)"}),"Менеджер "+c.manager+"%"), el("span",{}, el("i",{class:"an-sq",style:"background:var(--warn)"}),"Клієнт "+c.client+"%"), el("span",{}, el("i",{class:"an-sq",style:"background:var(--border-strong)"}),"Обставини "+c.circumstances+"%")),
+    c.note ? el("div",{class:"an-note-t"}, c.note) : null));
+  blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"}, hasB ? "Цифри: "+nm.A+" проти "+nm.B : "Цифри"), anStatsTable(st, hasB, ss)));
+  const ct = anCriteriaTable(st, hasB, ss);
+  if (ct) blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"},"Оцінки за критеріями"), ct));
   if ((r.compare||[]).length) blocks.push(el("div",{class:"card"}, el("div",{class:"an-lbl"},"Де різниця"),
-    r.compare.map(x=>el("div",{class:"an-cmp"}, el("div",{style:"font-weight:600;"}, x.topic),
-      el("div",{class:"an-cmp__g"}, el("div",{}, el("span",{class:"an-tag"},"A"), " "+x.A), el("div",{}, el("span",{class:"an-tag"},"B"), " "+x.B)),
-      x.gap ? el("div",{class:"muted small"}, x.gap) : null))));
-  (r.findings||[]).forEach(f=>blocks.push(el("div",{class:"card"},
-    el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap;"}, el("span",{class:"badge "+(sevCls[f.severity]||"badge--retry")}, sevTx[f.severity]||"Увага"), el("b",{}, f.title)),
-    el("div",{style:"margin:8px 0;line-height:1.5;white-space:pre-wrap;"}, f.body),
-    (f.evidence||[]).length ? el("div",{class:"an-evs"}, f.evidence.map(anEvidence)) : el("div",{class:"muted xs"},"Без цитат: висновок спирається на цифри."))));
+    r.compare.map(x=>el("div",{class:"an-cmp"}, el("div",{class:"an-cmp__t"}, x.topic),
+      el("div",{class:"an-cmp__g"},
+        el("div",{class:"an-cmp__c an-cmp__c--a"}, el("div",{class:"an-cmp__n"}, anDot(0)," ",nm.A), x.A),
+        hasB ? el("div",{class:"an-cmp__c an-cmp__c--b"}, el("div",{class:"an-cmp__n"}, anDot(1)," ",nm.B), x.B) : null),
+      x.gap ? el("div",{class:"an-note-t"}, "Різниця: "+x.gap) : null))));
+  (r.findings||[]).forEach(f=>blocks.push(el("div",{class:"card an-fd an-fd--"+(f.severity||"warn")},
+    el("div",{class:"an-fd__h"}, el("span",{class:"badge "+(sevCls[f.severity]||"badge--retry")}, sevTx[f.severity]||"Увага"), el("b",{}, f.title)),
+    el("div",{class:"an-fd__b"}, f.body),
+    (f.evidence||[]).length ? el("div",{class:"an-evs"}, f.evidence.map(e=>anEvidence(e,nm))) : el("div",{class:"muted xs"},"Без цитат: висновок спирається на цифри."))));
   if ((r.doMore||[]).length || (r.stopDoing||[]).length) blocks.push(el("div",{class:"an-two"},
-    el("div",{class:"card"}, el("div",{class:"an-lbl"},"Робити більше"), el("ul",{class:"an-ul"}, (r.doMore||[]).map(x=>el("li",{}, x)))),
-    el("div",{class:"card"}, el("div",{class:"an-lbl"},"Прибрати"), el("ul",{class:"an-ul"}, (r.stopDoing||[]).map(x=>el("li",{}, x))))));
+    el("div",{class:"card an-do an-do--more"}, el("div",{class:"an-lbl"},"Робити більше"), el("ul",{class:"an-ul"}, (r.doMore||[]).map(x=>el("li",{}, x)))),
+    el("div",{class:"card an-do an-do--stop"}, el("div",{class:"an-lbl"},"Прибрати"), el("ul",{class:"an-ul"}, (r.stopDoing||[]).map(x=>el("li",{}, x))))));
+  blocks.push(anCallsList(d));
   const money = d.costUsd!=null ? " · витрачено ≈ $"+Number(d.costUsd).toFixed(4) : "";
   blocks.push(el("div",{class:"muted xs"},
     "Нових розборів розмов: "+(m.deepNew||0)+", з кешу: "+(m.deepCached||0)+(m.deepFailed?", з помилкою: "+m.deepFailed:"")+(m.noTranscript?", без розшифровки: "+m.noTranscript:"")+
@@ -3119,17 +3218,23 @@ function openAnalysisModal(){
   }
   function paintHist(){
     if (!hist.length){ histHost.replaceChildren(el("div",{class:"muted small"},"Поки порожньо. Запусти перший аналіз.")); return; }
-    histHost.replaceChildren(...hist.map(h=>el("div",{class:"an-hi"+(h.id===st.view?" is-active":""), onclick:()=>openReport(h.id)},
-      el("div",{style:"min-width:0;flex:1;"},
-        el("div",{class:"an-hi__t"}, anTitle(h)),
-        el("div",{class:"muted xs"}, (h.status==="done" ? "✓" : h.status==="error" ? "⚠" : "⏳")+" "+(h.ts&&h.ts.toDate ? h.ts.toDate().toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "")+
-          (h.costUsd!=null ? " · $"+Number(h.costUsd).toFixed(3) : "")+(h.question ? " · "+String(h.question).slice(0,40) : ""))),
-      el("button",{class:"btn btn-ghost btn-sm", type:"button", title:"Видалити з історії", onclick:async ev=>{
-        ev.stopPropagation();
-        if (!(await confirmModal("Видалити звіт?", "Запис зникне з історії. Збережені розбори розмов лишаться.", "Видалити"))) return;
-        try { await db.collection("analysisReports").doc(h.id).delete(); hist = hist.filter(x=>x.id!==h.id); __anHist = hist; persistHist(); if (st.view===h.id){ openReport(null); } paintHist(); }
-        catch(e){ toast("Не вдалося видалити","err"); } } }, ICONS.trash())
-    )));
+    histHost.replaceChildren(...hist.map(h=>{
+      const ss = h.samples||[], same = ss.length===2 && anPer(ss[0])===anPer(ss[1]) && ss[0].fmt===ss[1].fmt;
+      const when = h.ts&&h.ts.toDate ? h.ts.toDate().toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+      const stIcon = h.status==="done" ? "✓ Готово" : h.status==="error" ? "⚠ Помилка" : "⏳ Рахується";
+      return el("div",{class:"an-hi"+(h.id===st.view?" is-active":""), onclick:()=>openReport(h.id)},
+        el("div",{class:"an-hi__main"},
+          ss.map((s,i)=>el("div",{class:"an-hi__s"}, anDot(i), el("b",{}, anName(s)),
+            el("span",{class:"muted"}, " · "+(same && i ? anFmtLbl(s.fmt) : anPer(s))+" · "+(s.total||(s.callIds||[]).length)+" розм."))),
+          el("div",{class:"an-hi__m muted xs"}, (same ? anPer(ss[0])+" · " : "")+anFmtLbl((ss[0]||{}).fmt)),
+          h.question ? el("div",{class:"an-hi__q", title:String(h.question)}, "«"+String(h.question)+"»") : null,
+          el("div",{class:"an-hi__f xs"}, el("span",{class:"an-st an-st--"+(h.status||"x")}, stIcon), el("span",{class:"muted"}, " · "+when+(h.costUsd!=null ? " · $"+Number(h.costUsd).toFixed(3) : "")))),
+        el("button",{class:"btn btn-ghost btn-sm", type:"button", title:"Видалити з історії", onclick:async ev=>{
+          ev.stopPropagation();
+          if (!(await confirmModal("Видалити звіт?", "Запис зникне з історії. Збережені розбори розмов лишаться.", "Видалити"))) return;
+          try { await db.collection("analysisReports").doc(h.id).delete(); hist = hist.filter(x=>x.id!==h.id); __anHist = hist; persistHist(); if (st.view===h.id){ openReport(null); } paintHist(); }
+          catch(e){ toast("Не вдалося видалити","err"); } } }, ICONS.trash()));
+    }));
   }
   // Історія звітів: IndexedDB. З бази читаємо лише НОВІ звіти (ts > останнього збереженого) і ті, що ще не завершені.
   const anHyd = h=>{ if (h.tsMs!=null && !h.ts){ const ms=h.tsMs; h.ts = { toDate:()=>new Date(ms), toMillis:()=>ms }; } return h; };

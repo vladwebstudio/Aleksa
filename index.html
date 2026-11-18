@@ -3217,7 +3217,14 @@ function openAnalysisModal(){
     const qs = (st.B ? ["Чим сильніший менеджер B?","Чому в одного виходить продавати, а в іншого ні?","Що я кажу не так або зайве?"]
                      : ["Чому не закриваються?","Що я кажу не так або зайве?","Яких питань мені бракує в розмові?"]);
     const ta = el("textarea",{class:"an-ta", rows:"4", maxlength:"1000", placeholder:"Що з'ясувати? Наприклад: чому зараз не закриваються: вина клієнтів чи моя?"});
-    ta.value = st.question; ta.addEventListener("input", ()=>{ st.question = ta.value; });
+    ta.value = st.question;
+    ta.addEventListener("input", ()=>{
+      st.question = ta.value;
+      if ((String(st.question).trim().length>=5) !== qOk){     // перетнули поріг «питання заповнене»: оновити кнопку й підказки
+        repaint(); const t = left.querySelector(".an-ta");
+        if (t){ t.focus(); try { t.setSelectionRange(t.value.length, t.value.length); } catch(_){} }
+      }
+    });
     const runBtn = el("button",{class:"btn btn-primary", type:"button", disabled:anDis(!canRun), onclick:()=>run(A,B,est)}, st.busy ? "Створюю заявку…" : "Запустити аналіз");
     const whyBox = why.length ? el("div",{class:"an-why"}, why.map(t=>el("div",{}, "• "+t))) : null;
     left.replaceChildren(

@@ -869,6 +869,7 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-ev__k{font-size:12px;font-weight:600}.an-ev__go{margin-left:auto;font-size:11.5px;color:var(--brand)}
 .an-ask{margin-top:6px}.an-ask__h{font-weight:700;font-size:15px;margin-bottom:4px}.an-ask__sub{font-size:12.5px;color:var(--text-muted);margin-bottom:10px}
 .an-ask__chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.an-ask__row{display:flex;gap:10px;align-items:flex-end;margin-top:8px}.an-ask__row .an-ta{min-height:64px}
+.an-think{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13.5px}.an-think i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse 1.2s infinite}.an-think i:nth-child(3){animation-delay:.2s}.an-think i:nth-child(4){animation-delay:.4s}
 .an-aq{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}.an-aq__q{font-size:13.5px;line-height:1.5;color:var(--text-muted);margin-bottom:8px}.an-aq__q b{color:var(--text)}
 .an-aq__v{font-size:16px;font-weight:700;line-height:1.35;margin-bottom:8px}.an-aq__a{font-size:14px;line-height:1.6;white-space:pre-line;margin-bottom:10px}
 .an-pt{border:1px solid var(--border);border-left-width:3px;border-radius:var(--r-sm);padding:10px 12px;margin-top:8px;background:var(--surface-2)}
@@ -3137,7 +3138,7 @@ function anAskView(a, nm){
   const r = a.result||{}, b = r.blame;
   const kids = [el("div",{class:"an-aq__q"}, el("b",{},"Питання: "), a.question||"")];
   if (a.status==="error") return el("div",{class:"an-aq"}, kids, el("div",{class:"an-note an-note--err"}, el("b",{},"Не вийшло: "), a.error||"невідома помилка"));
-  if (a.status!=="done") return el("div",{class:"an-aq"}, kids, el("div",{class:"muted small"}, a.status==="running" ? "Думаю над відповіддю…" : "Чекаю сервер…"));
+  if (a.status!=="done") return el("div",{class:"an-aq"}, kids, el("div",{class:"an-think"}, el("span",{}, a.status==="running" ? "ШІ думає" : "Питання надіслано, чекаю сервер"), el("i"), el("i"), el("i")));
   if (r.verdict) kids.push(el("div",{class:"an-aq__v"}, r.verdict));
   if (b) kids.push(el("div",{},
     el("div",{class:"an-bar"}, el("div",{style:"width:"+b.manager+"%;background:var(--danger);"}), el("div",{style:"width:"+b.client+"%;background:var(--warn);"}), el("div",{style:"width:"+b.circumstances+"%;background:var(--border-strong);"})),
@@ -3162,7 +3163,12 @@ function anAskBlock(d){
   let busy = false, asks = [];
   const sync = ()=>{ if (busy || ta.value.trim().length<3) btn.setAttribute("disabled","disabled"); else btn.removeAttribute("disabled"); };
   ta.addEventListener("input", sync);
-  const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(b)-ms(a)); list.replaceChildren(...asks.map(a=>anAskView(a,nm))); };
+  const seenBusy = new Set();
+  const paint = ()=>{ const ms = h=>(h.ts&&h.ts.toMillis) ? h.ts.toMillis() : Date.now(); asks.sort((a,b)=>ms(b)-ms(a)); list.replaceChildren(...asks.map(a=>anAskView(a,nm)));
+    let focus = null;
+    asks.forEach((a,i)=>{ const busy = a.status==="pending"||a.status==="running"; if (busy) seenBusy.add(a.id); else if (seenBusy.delete(a.id)) focus = list.children[i]; });
+    if (!focus && asks.some(a=>a.status==="pending"&&!seenBusy.has("x"+a.id))) { const i = asks.findIndex(a=>a.status==="pending"); if (i>=0) { asks.forEach(a=>seenBusy.add("x"+a.id)); focus = list.children[i]; } }
+    if (focus) { try { focus.scrollIntoView({behavior:"smooth", block:"nearest"}); } catch(_){} } };
   btn.addEventListener("click", async ()=>{
     const q = ta.value.trim(); if (busy || q.length<3) return;
     if (!(await confirmModal("Точно надіслати питання?", "«"+(q.length>140 ? q.slice(0,140)+"…" : q)+"»\nОцінка вартості: до ≈ $"+AN_EST_ASK.toFixed(2)+" за питання (зазвичай близько $0.002–0.01). Це платний запит до ШІ.", "Так, надіслати"))) return;

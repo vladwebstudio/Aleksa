@@ -789,12 +789,14 @@ button.pm-ok:hover,button.pm-mid:hover,button.pm-low:hover{box-shadow:inset 0 0 
 .an-box{border:1px solid var(--border);border-radius:var(--r-md);padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:10px}
 .an-box__h{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .an-tag{display:inline-flex;align-items:center;justify-content:center;padding:2px 8px;border-radius:var(--r-pill);background:var(--brand-soft);color:var(--brand);font-size:11.5px;font-weight:700}
-.an-seg{flex-wrap:wrap;border-radius:12px;width:100%;box-sizing:border-box}
-.an-seg button{padding:5px 10px;font-size:12.5px}
+.an-seg{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;border-radius:12px;width:100%;box-sizing:border-box}
+.an-seg--3{grid-template-columns:1.5fr 1fr 1.2fr}
+.an-seg button{padding:6px 2px;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.an-left>*{flex-shrink:0}
 .an-chips{display:flex;flex-wrap:wrap;gap:6px}
 .an-chip{padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;cursor:pointer}
 .an-chip:hover{border-color:var(--brand);color:var(--brand)}
-.an-ta{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical}
+.an-ta{width:100%;min-height:92px;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13.5px;resize:vertical}
 .an-ta:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);outline:none}
 .an-run .btn{width:100%}
 .an-hi{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;margin-bottom:6px}
@@ -3079,7 +3081,7 @@ function openAnalysisModal(){
     const cmpBtns = el("div",{class:"an-chips"},
       el("button",{class:"btn btn-ghost btn-sm", type:"button", disabled:anDis(!other), onclick:()=>{ st.B = Object.assign({}, st.A, { who:other.value }); repaint(); }}, "+ З іншим менеджером (той самий період)"),
       el("button",{class:"btn btn-ghost btn-sm", type:"button", disabled:anDis(!pp||st.A.who==="all"), title:pp?"":"Для «Весь час» попереднього періоду немає", onclick:()=>{ st.B = pp; repaint(); }}, "+ З попереднім періодом"));
-    const fmtSeg = el("div",{class:"period-seg an-seg"}, AN_FORMATS.map(f=>el("button",{type:"button", class:st.fmt===f.key?"is-active":"", onclick:()=>{ st.fmt=f.key; repaint(); }}, f.label)));
+    const fmtSeg = el("div",{class:"period-seg an-seg an-seg--3"}, AN_FORMATS.map(f=>el("button",{type:"button", class:st.fmt===f.key?"is-active":"", onclick:()=>{ st.fmt=f.key; repaint(); }}, f.label)));
     const qs = (st.B ? ["Чим сильніший менеджер B?","Чому в одного виходить продавати, а в іншого ні?","Що я кажу не так або зайве?"]
                      : ["Чому не закриваються?","Що я кажу не так або зайве?","Яких питань мені бракує в розмові?"]);
     const ta = el("textarea",{class:"an-ta", rows:"4", maxlength:"1000", placeholder:"Що з'ясувати? Наприклад: чому зараз не закриваються: вина клієнтів чи моя?"});

@@ -1590,66 +1590,116 @@ function paymentCard(p, jump){
         ? el("span",{},"  ", el("button",{class:"tc", type:"button", style:"font-style:normal;margin:0;", title:"Відкрити в транскрипті", onclick:()=>jump(String(p.ts))}, String(p.ts)))
         : (p.ts ? " · "+p.ts : null)) : null);
 }
-// Режим «Тест» (суворий критик): блоки про біль клієнта, закриття й провину. Показуються лише якщо в аналізі є testMode="critic".
-function criticCards(d, jump){
-  if (!d || d.testMode!=="critic") return null;
+// Режим «Тест» (суворий критик). Дві плашки зверху розмови: «Звичайний аналіз» і «Критик». Дані критика лежать в analysis/main.critic.
+const CRIT_V = {
+  yes:["ТАК","good"], partial:["ЧАСТКОВО","mid"], no:["НІ","bad"],
+  good:["НОРМАЛЬНЕ","good"], weak:["СЛАБКЕ","mid"], bad:["ПОГАНЕ","bad"],
+  none:["—","mid"]
+};
+const CRIT_WHO = { manager:"Менеджер", client:"Клієнт", circumstances:"Обставини", mixed:"Частково обоє" };
+const CRIT_COL = { good:["var(--success)","var(--success-soft)"], mid:["var(--warn)","var(--warn-soft)"], bad:["var(--danger)","var(--danger-soft)"], neutral:["var(--brand)","var(--surface-2)"] };
+function critPill(text, kind){
+  const c = CRIT_COL[kind] || CRIT_COL.neutral;
+  return el("span",{style:"display:inline-block;padding:4px 12px;border-radius:999px;font-weight:700;font-size:12.5px;letter-spacing:.03em;background:"+c[0]+";color:#fff;white-space:nowrap;"}, text);
+}
+// Зелений блок «Як треба було»
+function critFix(text, tcl){
+  if (!text) return null;
+  return el("div",{style:"margin-top:8px;padding:9px 12px;border-radius:8px;border-left:4px solid var(--success);background:var(--success-soft);font-size:13.5px;line-height:1.55;"},
+    el("b",{}, "Як треба було: "), ...(tcl ? tcl(text) : [text]));
+}
+function critSwitch(view, onPick){
+  const btn = (key, title, sub) => el("button",{type:"button", onclick:()=>onPick(key),
+      style:"flex:1;min-width:0;text-align:left;cursor:pointer;padding:10px 14px;border-radius:12px;border:2px solid "+(view===key?"var(--brand)":"var(--border)")+";background:"+(view===key?"var(--brand)":"var(--surface)")+";color:"+(view===key?"#fff":"inherit")+";font:inherit;"},
+    el("div",{style:"font-weight:700;font-size:14px;"}, title),
+    el("div",{style:"font-size:12px;opacity:.8;margin-top:2px;"}, sub));
+  return el("div",{style:"display:flex;gap:10px;margin:0 0 var(--s-4);"},
+    btn("normal","Звичайний аналіз","Базова оцінка за скриптом"),
+    btn("critic","Критик","Суворий розбір: біль, закриття, помилки"));
+}
+// Вкладка «Підсумок» у вигляді критика
+function criticSummary(d, jump, tcl, scoreRingFn){
+  const c = d.critic;
   const tsBtn = ts => (ts && /^\d{1,2}:\d{2}(:\d{2})?$/.test(String(ts)) && jump)
     ? el("button",{class:"tc", type:"button", style:"font-style:normal;margin:0 8px 0 0;", title:"Відкрити в транскрипті", onclick:()=>jump(String(ts))}, String(ts)) : null;
-  const badge = el("div",{class:"cv-card", style:"border-left:3px solid var(--brand);"},
-    el("div",{class:"cv-card__title"}, "Режим «Тест»: суворий критик"),
-    el("div",{class:"muted small"}, "Аналіз зроблено за тестовими критеріями (скрипти → «Тест (критик)»). Щоб повернути звичайний, натисни «Перезапустити аналіз» і вибери звичайний режим."));
-  const c = d.critic;
-  if (!c) return el("div",{}, badge, el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Розбір критика не вдався"),
-    el("div",{class:"muted small"}, (d.criticError || "Спробуй перезапустити аналіз у режимі «Тест».") )));
-  const pill = (txt, cls) => el("span",{class:"pay-pill "+cls}, txt);
-  const row = (label, node) => el("div",{class:"pay-row", style:"margin:6px 0;align-items:center;"}, el("span",{class:"muted", style:"min-width:170px;font-size:13px;"}, label), node);
-  const p = c.pain || {}, cl = c.closing || {}, b = c.blame || {};
-  const WHO = { manager:"Менеджер", client:"Клієнт", circumstances:"Обставини", mixed:"Частково обоє" };
-  const EX = { yes:["Так","pay-pill--yes"], partial:["Частково","pay-pill--unclear"], no:["Ні","pay-pill--no"] };
-  const DP = { good:["Підсилив","pay-pill--yes"], weak:["Слабо","pay-pill--unclear"], none:["Не підсилив","pay-pill--no"] };
-  const HD = { proper:["Відпрацював","pay-pill--yes"], formal:["Формально","pay-pill--unclear"], none:["Не відпрацював","pay-pill--no"] };
-  const noPain = p.exists==="no";
-  const dash = el("span",{class:"muted"}, "—");
-  const painCard = el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Біль клієнта"),
-    row("Була біль?", pill((EX[p.exists]||EX.no)[0], "pay-pill--unclear")),
-    row("Виявив менеджер?", noPain ? dash : pill((EX[p.uncovered]||EX.no)[0], (EX[p.uncovered]||EX.no)[1])),
-    row("Підсилив?", noPain ? dash : pill((DP[p.deepened]||DP.none)[0], (DP[p.deepened]||DP.none)[1])),
-    row("Відпрацював?", noPain ? dash : pill((HD[p.handled]||HD.none)[0], (HD[p.handled]||HD.none)[1])),
-    row("Хто винен", el("b",{}, WHO[p.responsible] || "—")),
-    p.pain_text ? el("div",{style:"margin:10px 0 4px;font-size:13.5px;line-height:1.55;"}, el("b",{}, "У чому біль: "), p.pain_text) : null,
-    p.quote ? el("div",{class:"pay-quote"}, tsBtn(p.ts), "«"+p.quote+"»") : null,
-    p.comment ? el("div",{style:"margin-top:8px;font-size:13.5px;line-height:1.55;"}, p.comment) : null);
-  const closeCard = el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Закриття: розбір"),
-    row("Спроба закрити була?", pill(cl.reached ? "Так" : "Ні", cl.reached ? "pay-pill--yes" : "pay-pill--no")),
-    cl.verdict ? el("div",{style:"margin:6px 0 10px;font-size:13.5px;line-height:1.55;"}, cl.verdict) : null,
-    ...(cl.attempts||[]).map(x => el("div",{style:"margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--surface-2, rgba(127,127,127,.08));font-size:13.5px;line-height:1.55;"},
-      el("div",{}, tsBtn(x.ts), el("b",{}, "Що сталося: "), x.said || "—"),
-      x.problem ? el("div",{style:"margin-top:4px;"}, el("b",{}, "Проблема: "), x.problem) : null,
-      x.better ? el("div",{style:"margin-top:4px;"}, el("b",{}, "Краще сказати: "), el("i",{}, "«"+x.better+"»")) : null)));
+  if (!c) return el("div",{}, el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Розбір критика не вдався"),
+    el("div",{class:"muted small"}, d.criticError || "Спробуй перезапустити аналіз у режимі «Тест».")));
+  const q = c.quick || {};
+  const qrow = (label, x, map, withFix) => {
+    if (!x) return null;
+    const m = (map && map[x.v]) || CRIT_V[x.v] || ["—","mid"];
+    const col = (CRIT_COL[m[1]]||CRIT_COL.neutral);
+    return el("div",{style:"padding:12px 14px;margin:0 0 10px;border-radius:10px;border-left:5px solid "+col[0]+";background:var(--surface-2);"},
+      el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"},
+        el("div",{style:"font-weight:700;font-size:14.5px;"}, label), critPill(m[0], m[1])),
+      x.why ? el("div",{style:"margin-top:6px;font-size:13.5px;line-height:1.55;"}, el("b",{}, "Чому: "), ...tcl(x.why)) : null,
+      withFix ? critFix(x.fix, tcl) : null);
+  };
+  const painMap = { yes:["БУЛА","mid"], partial:["ЧАСТКОВО","mid"], no:["НЕ БУЛО","good"] };
+  const blameRow = q.blame ? el("div",{style:"padding:12px 14px;margin:0;border-radius:10px;border-left:5px solid var(--brand);background:var(--surface-2);"},
+      el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"},
+        el("div",{style:"font-weight:700;font-size:14.5px;"}, "Хто винен, що не закрито?"),
+        critPill((CRIT_WHO[q.blame.v]||"—").toUpperCase(), q.blame.v==="manager" ? "bad" : (q.blame.v==="client" ? "mid" : "neutral"))),
+      q.blame.why ? el("div",{style:"margin-top:6px;font-size:13.5px;line-height:1.55;"}, el("b",{}, "Чому: "), ...tcl(q.blame.why)) : null) : null;
+  const b = c.blame || {};
+  const share = (b.manager_share==null) ? null : Math.max(0, Math.min(100, b.manager_share));
   const CLS = { easy:"легко", medium:"середньо", hard:"важко" };
-  const blameCard = el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Хто винен, що не закрито"),
-    row("Більше винен", el("b",{}, WHO[b.who] || "—")),
-    row("Частка провини менеджера", el("b",{}, (b.manager_share==null ? "—" : b.manager_share+"%"))),
-    row("Клієнтку було закрити", el("b",{}, CLS[b.closability] || "—")),
-    b.reason ? el("div",{style:"margin-top:8px;font-size:13.5px;line-height:1.55;"}, b.reason) : null);
-  // Короткі прямі відповіді критика (поле quick; у старих тест-аналізах його нема)
-  const qk = c.quick;
-  const QN = { yes:["Так","pay-pill--yes"], partial:["Частково","pay-pill--unclear"], no:["Ні","pay-pill--no"] };
-  const QC = { good:["Нормальне","pay-pill--yes"], weak:["Слабке","pay-pill--unclear"], bad:["Погане","pay-pill--no"] };
-  const qrow = (label, x, map) => x ? el("div",{style:"margin:0 0 10px;"},
-    el("div",{class:"pay-row", style:"align-items:center;"}, el("span",{style:"min-width:190px;font-weight:600;font-size:13.5px;"}, label), pill((map[x.v]||["—","pay-pill--unclear"])[0], (map[x.v]||["—","pay-pill--unclear"])[1])),
-    x.why ? el("div",{class:"muted", style:"font-size:13px;line-height:1.5;margin-top:2px;"}, x.why) : null) : null;
-  const quickCard = qk ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Коротко: відповіді критика"),
-    qrow("Біль була?", qk.pain_exists, { yes:["Була","pay-pill--unclear"], partial:["Частково","pay-pill--unclear"], no:["Не було","pay-pill--unclear"] }),
-    qrow("Менеджер виявив біль?", qk.uncovered, QN),
-    qrow("Розкопав і підсилив?", qk.deepened, QN),
-    qrow("Відпрацював біль?", qk.handled, QN),
-    qrow("Закриття нормальне?", qk.closing, QC),
-    qk.blame ? el("div",{style:"margin:0;"},
-      el("div",{class:"pay-row", style:"align-items:center;"}, el("span",{style:"min-width:190px;font-weight:600;font-size:13.5px;"}, "Хто винен, що не закрито?"), el("b",{}, WHO[qk.blame.v] || "—")),
-      qk.blame.why ? el("div",{class:"muted", style:"font-size:13px;line-height:1.5;margin-top:2px;"}, qk.blame.why) : null) : null) : null;
-  const verdictCard = c.verdict ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Вердикт критика"), el("div",{class:"cv-card__body"}, c.verdict)) : null;
-  return el("div",{}, badge, quickCard, verdictCard, painCard, closeCard, blameCard);
+  const p = c.pain || {};
+  const crit = (c.criteria||[]);
+  const rated = crit.filter(x=>!x.na);
+  return el("div",{},
+    el("div",{class:"cv-card"},
+      el("div",{style:"display:flex;gap:16px;align-items:center;flex-wrap:wrap;"},
+        c.score!=null ? el("div",{style:"text-align:center;"}, el("div",{class:"cv-crit-cell__name"}, "Оцінка критика"), scoreRingFn(c.score, 64)) : null,
+        el("div",{style:"flex:1;min-width:220px;"}, el("div",{class:"cv-card__title"}, "Вердикт критика"),
+          el("div",{class:"cv-card__body"}, c.verdict || "—")))),
+    el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Відповіді на головні питання"),
+      qrow("Біль була?", q.pain_exists, painMap, false),
+      qrow("Менеджер виявив біль?", q.uncovered, null, true),
+      qrow("Розкопав і підсилив?", q.deepened, null, true),
+      qrow("Відпрацював біль?", q.handled, null, true),
+      qrow("Закриття нормальне?", q.closing, null, true),
+      blameRow),
+    (p.pain_text || p.quote) ? el("div",{class:"cv-card cv-card--pain"}, el("div",{class:"cv-card__title"}, "Біль клієнта"),
+      p.pain_text ? el("div",{style:"font-size:13.5px;line-height:1.55;"}, p.pain_text) : null,
+      p.quote ? el("div",{class:"pay-quote"}, tsBtn(p.ts), "«"+p.quote+"»") : null,
+      p.comment ? el("div",{style:"margin-top:8px;font-size:13.5px;line-height:1.55;"}, ...tcl(p.comment)) : null) : null,
+    ((c.closing && (c.closing.attempts||[]).length) || (c.closing && c.closing.verdict)) ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Закриття: що було"),
+      c.closing.verdict ? el("div",{style:"font-size:13.5px;line-height:1.55;margin-bottom:10px;"}, c.closing.verdict) : null,
+      ...(c.closing.attempts||[]).map(x => el("div",{style:"margin:0 0 10px;padding:10px 12px;border-radius:8px;background:var(--surface-2);font-size:13.5px;line-height:1.55;"},
+        el("div",{}, tsBtn(x.ts), el("b",{}, "Що зробив: "), x.said || "—"),
+        x.problem ? el("div",{style:"margin-top:4px;"}, el("b",{}, "Проблема: "), x.problem) : null,
+        critFix(x.better, tcl)))) : null,
+    el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Чи можна було закрити"),
+      share!=null ? el("div",{style:"margin-bottom:10px;"},
+        el("div",{style:"display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"}, el("span",{}, "Провина менеджера"), el("b",{}, share+"%")),
+        el("div",{style:"height:10px;border-radius:6px;background:var(--surface-2);overflow:hidden;"}, el("div",{style:"height:100%;width:"+share+"%;background:"+(share>=60?"var(--danger)":(share>=35?"var(--warn)":"var(--success)"))+";"}))) : null,
+      el("div",{style:"font-size:13.5px;"}, el("b",{}, "Клієнтку було закрити: "), CLS[b.closability] || "—"),
+      b.reason ? el("div",{style:"margin-top:6px;font-size:13.5px;line-height:1.55;"}, b.reason) : null),
+    crit.length ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Оцінка за етапами"),
+      el("div",{class:"muted xs",style:"margin-bottom:8px;"}, rated.length+" з "+crit.length+" етапів оцінено; «—» — розмова до етапу не дійшла"),
+      ...crit.map(x => el("div",{style:"display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--border);"},
+        el("div",{style:"flex:0 0 52px;"}, x.na ? el("div",{class:"score-ring score-ring--na",style:"width:44px;height:44px;"}, el("span",{class:"score-ring__text"},"—")) : scoreRingFn(x.score, 44)),
+        el("div",{style:"flex:1;min-width:0;"},
+          el("div",{style:"font-weight:700;font-size:14px;"}, x.name, x.weight ? el("span",{class:"muted xs",style:"font-weight:400;"}, "  · складає "+x.weight+"%") : null),
+          x.comment ? el("div",{style:"font-size:13.5px;line-height:1.55;margin-top:2px;"}, ...tcl(x.comment)) : null)))) : null);
+}
+// Вкладка «Слабкі місця» у вигляді критика: помилки + що треба було зробити
+function criticErrors(d, jump, tcl, quoteAt){
+  const c = d.critic;
+  if (!c) return el("div",{class:"cv-card"}, el("div",{class:"muted small"}, d.criticError || "Розбір критика недоступний."));
+  const errs = c.errors || [];
+  if (!errs.length) return el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"}, "Помилки критика"), el("div",{class:"muted small"}, "Критик не знайшов помилок."));
+  return el("div",{},
+    errs.map(e => {
+      const ql = quoteAt(d.transcript, e.ts);
+      return el("div",{class:"cv-card "+(e.severity==="critical"?"cv-card--crit":"cv-card--warn")},
+        e.criterion ? el("div",{class:"muted xs",style:"text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:4px;"}, "Критерій · "+e.criterion) : null,
+        el("div",{class:"cv-card__title"}, e.title),
+        e.what ? el("div",{class:"cv-card__body",style:"margin-bottom:4px;"}, el("b",{}, "Що сталося: "), ...tcl(e.what)) : null,
+        ql ? el("div",{class:"cv-quote", onclick:()=>jump(e.ts)}, el("span",{class:"cv-quote__time"}, e.ts), el("span",{class:"cv-quote__role"}, ql.r), el("span",{}, "«"+ql.text+"»")) : null,
+        critFix(e.better, tcl));
+    }));
 }
 function callDetailMock(call){
   // Реальні дані підтягуються з Firestore (chunks, analysis/main). Поки їх нема — порожньо.
@@ -4971,6 +5021,16 @@ function renderCallDetail(root, callId){
   // Tab content
   function renderTab(){
     const t = callDetailState.tab;
+    // Тест: розмова має розбір критика → дві плашки зверху («Звичайний аналіз» / «Критик»)
+    if (!(d.testMode==="critic" && !viewOnly && !isAdminMeeting && (t==="summary" || t==="weak"))) return renderTabBase();
+    if (callDetailState.viewFor !== callId){ callDetailState.viewFor = callId; callDetailState.view = "normal"; }
+    const sw = critSwitch(callDetailState.view, v => { callDetailState.view = v; content.replaceChildren(renderTab()); });
+    if (callDetailState.view==="critic")
+      return el("div",{}, sw, t==="summary" ? criticSummary(d, jumpToTranscript, tcLinks, scoreRing) : criticErrors(d, jumpToTranscript, tcLinks, quoteAtTime));
+    return el("div",{}, sw, renderTabBase());
+  }
+  function renderTabBase(){
+    const t = callDetailState.tab;
     if (t==="summary" && isAdminMeeting){
       const a = d.adminA;
       if (!a) return emptyCard("Підсумок", call.status==="done" ? "Виписки ще немає" : "Розмова ще не оброблена — виписка з'явиться тут сама");
@@ -4990,7 +5050,6 @@ function renderCallDetail(root, callId){
       const BLAME = { manager:"Менеджер: міг продати, але не впорався", client:"Клієнт: нецільовий зараз, менеджер не винен", circumstances:"Обставини: технічні чи зовнішні причини" };
       return el("div",{},
         buildScoreNode(),
-        criticCards(d, jumpToTranscript),
         d.blame ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"ЦА чи ні: хто винен"), el("div",{class:"cv-card__body"}, BLAME[d.blame] || d.blame)) : null,
         (d.sections||[]).length
           ? el("div",{class:"cv-card"}, el("div",{class:"cv-card__title"},"Короткий зміст"),

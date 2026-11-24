@@ -66,6 +66,7 @@ button{font:inherit;cursor:pointer;border:0;background:transparent}
 a{color:inherit;text-decoration:none}
 input,select,textarea{font:inherit;outline:none}
 textarea{resize:none;overflow-y:auto}
+textarea.input{overflow-y:hidden}  /* велике поле росте за текстом і не перехоплює колесо/тачпад */
 svg{display:inline-block;vertical-align:middle;flex-shrink:0}
 
 .app-shell{max-width:var(--page-max);margin:0 auto;padding:0 var(--s-6) var(--s-10)}
@@ -436,7 +437,7 @@ body.is-row-resizing{cursor:row-resize;user-select:none}
 .cal__quick button:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
 
 /* modal */
-.modal-bg,.modal,.cv-overlay,.cv-modal,.cv-modal *{overscroll-behavior:contain}
+.modal-bg,.modal,.cv-overlay,.cv-modal{overscroll-behavior:contain}
 .modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;background:var(--overlay);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px;box-sizing:border-box;overflow-y:auto}
 .modal{background:var(--surface);border-radius:var(--r-lg);padding:24px;width:100%;max-width:460px;box-shadow:var(--sh-lg);max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;overflow-x:hidden;box-sizing:border-box;margin:auto;flex:none}
 .modal *{min-width:0;overflow-wrap:anywhere}
@@ -1792,6 +1793,14 @@ function confirmModal(title, text, okLabel){
   });
 }
 // Вікна не закриваються, коли виділяєш текст і відпускаєш мишу на темному тлі: закриття лише якщо і натиснули, і відпустили саме на тлі
+(function(){
+  // автовисота для великих полів (скрипти, правила): сторінка гортається рівно, поле не «ловить» прокрутку
+  const grow = t => { if (!t || t.tagName !== "TEXTAREA" || !t.classList.contains("input")) return; if (!t.offsetParent) return; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; };
+  const all = root => (root.querySelectorAll ? root.querySelectorAll("textarea.input") : []).forEach(grow);
+  document.addEventListener("input", e => grow(e.target), true);
+  new MutationObserver(ms => { for (const m of ms) m.addedNodes.forEach(n => { if (n.nodeType === 1){ if (n.matches && n.matches("textarea.input")) requestAnimationFrame(()=>grow(n)); else requestAnimationFrame(()=>all(n)); } }); }).observe(document.documentElement, {childList:true, subtree:true});
+  window.addEventListener("resize", () => all(document));
+})();
 (function(){
   let md = null;
   document.addEventListener("mousedown", e => { md = e.target; }, true);

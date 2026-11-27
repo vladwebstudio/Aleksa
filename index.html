@@ -1794,6 +1794,14 @@ function confirmModal(title, text, okLabel){
 }
 // Вікна не закриваються, коли виділяєш текст і відпускаєш мишу на темному тлі: закриття лише якщо і натиснули, і відпустили саме на тлі
 (function(){
+  // Колесико миші (або Ctrl/Cmd+клік) по картці розмови → відкрити в новій вкладці, поточна лишається
+  const find = e => { const r = e.target && e.target.closest && e.target.closest("[data-call]"); if (!r) return null; const inner = e.target.closest("button,a,input,select,textarea,label"); return (inner && r.contains(inner)) ? null : r; };
+  const openNew = r => window.open(location.href.split("#")[0] + "#/calls/" + encodeURIComponent(r.getAttribute("data-call")), "_blank", "noopener");
+  document.addEventListener("mousedown", e => { if (e.button === 1 && find(e)) e.preventDefault(); }, true);   // без «автоскролу» від колесика
+  document.addEventListener("auxclick", e => { if (e.button !== 1) return; const r = find(e); if (!r) return; e.preventDefault(); e.stopPropagation(); openNew(r); }, true);
+  document.addEventListener("click", e => { if (!(e.ctrlKey || e.metaKey)) return; const r = find(e); if (!r) return; e.preventDefault(); e.stopPropagation(); openNew(r); }, true);
+})();
+(function(){
   // автовисота для великих полів (скрипти, правила): сторінка гортається рівно, поле не «ловить» прокрутку
   const grow = t => { if (!t || t.tagName !== "TEXTAREA" || !t.classList.contains("input")) return; if (!t.offsetParent) return; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; };
   const all = root => (root.querySelectorAll ? root.querySelectorAll("textarea.input") : []).forEach(grow);
@@ -2635,7 +2643,7 @@ function renderOverview(root){
             const previewItems = sortedW.slice(0, 2).map(w => (w.title||"").trim()).filter(Boolean);
             const rest = total - previewItems.length;
             const previewTxt = previewItems.join(" · ") + (rest > 0 ? "  · +"+rest+" ще" : "");
-            return el("div",{class:"sev-row"+(isCrit?" is-danger":""), onclick:()=>{ if (onNav) onNav(); callDetailState.tab = "weak"; location.hash = "#/calls/"+call.id; }},
+            return el("div",{class:"sev-row"+(isCrit?" is-danger":""), "data-call":call.id, onclick:()=>{ if (onNav) onNav(); callDetailState.tab = "weak"; location.hash = "#/calls/"+call.id; }},
               userAva(mgr),
               el("div",{style:"min-width:0;"},
                 el("div",{class:"sev-row__title"}, titleTxt),
@@ -2680,7 +2688,7 @@ function renderOverview(root){
           const mgr = userByEmail(c.managerEmail);
           const sc  = c.score;
           const sub = (c.client || c.title || "(без назви)") + " · " + fmtTimeRange(c.startedAt, c.durationSec, c.status) + (c.summary ? " · " + (c.summary.length>36?c.summary.slice(0,36)+"…":c.summary) : "");
-          return el("div",{class:"recent-row", onclick:()=>{ location.hash = "#/calls/"+c.id; }},
+          return el("div",{class:"recent-row", "data-call":c.id, onclick:()=>{ location.hash = "#/calls/"+c.id; }},
             userAva(mgr),
             el("div",{style:"min-width:0;"},
               el("div",{class:"recent-row__name"}, mgr.name || mgr.email),
@@ -2851,7 +2859,7 @@ function renderCalls(root){
       const mgr = userByEmail(c.managerEmail);
       const score = c.score;
       const dur = c.durationSec ? fmtDur(c.durationSec) : null;
-      const row = el("div",{class:"calls-row calls-grid", onclick: ()=>{ location.hash = "#/calls/"+c.id; }},
+      const row = el("div",{class:"calls-row calls-grid", "data-call":c.id, onclick: ()=>{ location.hash = "#/calls/"+c.id; }},
         el("div",{class:"calls-row__cell"},
           el("div",{style:"font-weight:500;"}, fmtDate(c.startedAt)),
           el("div",{class:"muted xs"}, fmtTimeRange(c.startedAt, c.durationSec, c.status))),
@@ -2948,7 +2956,7 @@ function renderAdminCallsView(root, tabs){
       const proc = PROC_STATES.includes(c.status);
       const canStart = aiAllowed() && ["idle","canceled","error","transcribed"].includes(c.status);
       const adm = userByEmail(c.managerEmail);
-      listWrap.appendChild(el("div",{class:"calls-row "+gridCls, onclick:()=>{ location.hash = "#/calls/"+c.id; }},
+      listWrap.appendChild(el("div",{class:"calls-row "+gridCls, "data-call":c.id, onclick:()=>{ location.hash = "#/calls/"+c.id; }},
         el("div",{class:"calls-row__cell"},
           el("div",{style:"font-weight:500;"}, fmtDate(c.startedAt)),
           el("div",{class:"muted xs"}, fmtTimeRange(c.startedAt, c.durationSec, c.status))),
@@ -3641,7 +3649,7 @@ function renderProgress(root){
       el("div",{class:"section-title"}, el("span",{},"Розмови за "+periodLbl),
         el("button",{class:"btn btn-ghost btn-sm", onclick:()=>goToCalls({period:progressState.period, from:progressState.from, to:progressState.to, manager: isManager?"all":who, tab:"all"})}, "Усі розмови →")),
       el("div",{}, rows.length===0 ? el("div",{class:"empty"},"За цей період розмов немає.") :
-        rows.map(c => el("div",{class:"list-row", onclick:()=>{ location.hash="#/calls/"+c.id; }},
+        rows.map(c => el("div",{class:"list-row", "data-call":c.id, onclick:()=>{ location.hash="#/calls/"+c.id; }},
           userAva(userByEmail(c.managerEmail)),
           el("div",{},
             el("div",{class:"list-row__name"}, c.client || c.title || "(без назви)"),
